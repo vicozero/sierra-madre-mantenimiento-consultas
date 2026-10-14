@@ -3,6 +3,10 @@ const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: []
 const PALETTE = ['#1476df', '#31ad72', '#f6be25', '#f28a27', '#8052e8', '#0ba6a7', '#75869a'];
 let data = structuredClone(EMPTY);
 let view = 'inicio';
+const REPORT_BRAND = 'SIERRA MADRE';
+const REPORT_UNIT = 'MINA LA GUITARRA';
+const PERIOD_LABELS = { mensual: 'Mensual', semanal: 'Semanal', diario: 'Diario' };
+let reportPeriod = null;
 
 const VIEWS = {
   inicio: { label: 'Resumen KPI', title: 'Información del programa', subtitle: 'KPI, bitácora y calendario de servicio en una sola página.' },
@@ -187,6 +191,315 @@ function aggregateCalendarByEquipment(list) {
     const next = sorted.find(row => String(row.date).slice(0, 10) >= today) || sorted.at(-1);
     return { ...next, equipment, services: items.length, dates: sorted.map(row => row.date) };
   }).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+/* ---------- Reporte en PowerPoint (mensual / semanal / diario) ---------- */
+
+function pad2(value) {
+  return String(value).padStart(2, '0');
+}
+
+function isoDate(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function reportAnchor() {
+  const reference = data.meta?.periodEnd || $('date-end').value || data.meta?.updatedAt;
+  const parsed = reference ? new Date(`${String(reference).slice(0, 10)}T12:00:00`) : new Date();
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function periodRange(kind) {
+  const base = reportAnchor();
+  if (kind === 'diario') return { start: isoDate(base), end: isoDate(base) };
+  if (kind === 'semanal') {
+    const start = new Date(base);
+    start.setDate(base.getDate() - ((base.getDay() + 6) % 7));
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start: isoDate(start), end: isoDate(end) };
+  }
+  const start = new Date(base.getFullYear(), base.getMonth(), 1);
+  const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+  return { start: isoDate(start), end: isoDate(end) };
+}
+
+function formatDayLong(value) {
+  if (!value) return '—';
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
+}
+
+function formatRange(start, end) {
+  if (!start && !end) return '—';
+  if (!start || !end || start === end) return formatDayLong(start || end);
+  const first = new Date(`${start}T12:00:00`);
+  const last = new Date(`${end}T12:00:00`);
+  if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime())) return `${start} a ${end}`;
+  const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
+  const firstText = new Intl.DateTimeFormat('es-MX', sameMonth ? { day: '2-digit' } : { day: '2-digit', month: 'long' }).format(first);
+  return `del ${firstText} al ${formatDayLong(end)}`;
+}
+
+function periodKindFromRange(start, end) {
+  if (!start || !end) return null;
+  if (start === end) return 'diario';
+  const first = new Date(`${start}T12:00:00`);
+  const last = new Date(`${end}T12:00:00`);
+  if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime())) return null;
+  const days = Math.round((last - first) / 86400000) + 1;
+  if (days === 7) return 'semanal';
+  const monthEnd = new Date(last.getFullYear(), last.getMonth() + 1, 0).getDate();
+  if (first.getDate() === 1 && last.getDate() === monthEnd && first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear()) return 'mensual';
+  return null;
+}
+
+function applyPeriod(kind) {
+  if (!PERIOD_LABELS[kind]) return;
+  reportPeriod = kind;
+  const { start, end } = periodRange(kind);
+  $('date-start').value = start;
+  $('date-end').value = end;
+  document.querySelectorAll('#period-toggle [data-period]').forEach(button => button.classList.toggle('active', button.dataset.period === kind));
+  render();
+}
+
+function clearPeriodSelection() {
+  reportPeriod = null;
+  document.querySelectorAll('#period-toggle [data-period]').forEach(button => button.classList.remove('active'));
+}
+
+function sumField(list, key) {
+  return list.reduce((sum, row) => sum + (num(row[key]) || 0), 0);
+}
+
+function familyLabel(value) {
+  const clean = String(value || '').trim();
+  return /[a-z0-9áéíóúñ]/i.test(clean) ? clean : 'Sin familia';
+}
+
+function distinctCount(list, key) {
+  return new Set(list.map(row => row[key]).filter(Boolean)).size;
+}
+
+function familyIndicators(kpiRows) {
+  const groups = new Map();
+  for (const row of kpiRows) {
+    const family = familyLabel(row.family);
+    if (!groups.has(family)) groups.set(family, []);
+    groups.get(family).push(row);
+  }
+  return [...groups].map(([family, items]) => ({
+    family,
+    rows: items,
+    equipment: distinctCount(items, 'equipment'),
+    cuts: items.length,
+    availability: average(items, 'availability'),
+    utilization: average(items, 'utilization'),
+    worked: sumField(items, 'worked_hours'),
+    mp: sumField(items, 'mp_hours'),
+    mc: sumField(items, 'mc_hours'),
+    stops: sumField(items, 'stops'),
+    tmef: average(items.filter(row => (num(row.tmef) || 0) > 0), 'tmef'),
+    tmpr: average(items.filter(row => (num(row.tmpr) || 0) > 0), 'tmpr')
+  })).sort((a, b) => b.worked - a.worked);
+}
+
+function globalIndicators(kpiRows, bitacoraRows, calendarRows) {
+  const completed = calendarRows.filter(row => /complet|ejecut|realiz/i.test(String(row.status || ''))).length;
+  const scheduled = calendarRows.filter(row => !/cancel/i.test(String(row.status || ''))).length;
+  return {
+    availability: average(kpiRows, 'availability'),
+    utilization: average(kpiRows, 'utilization'),
+    tmef: average(kpiRows.filter(row => (num(row.tmef) || 0) > 0), 'tmef'),
+    tmpr: average(kpiRows.filter(row => (num(row.tmpr) || 0) > 0), 'tmpr'),
+    worked: sumField(kpiRows, 'worked_hours'),
+    mp: sumField(kpiRows, 'mp_hours'),
+    mc: sumField(kpiRows, 'mc_hours'),
+    stops: sumField(kpiRows, 'stops'),
+    kpiEquipment: distinctCount(kpiRows, 'equipment'),
+    cuts: kpiRows.length,
+    logs: bitacoraRows.length,
+    services: scheduled,
+    completed,
+    completion: scheduled ? completed / scheduled * 100 : null
+  };
+}
+
+const pctText = value => value === null || value === undefined ? '—' : `${fmt(value)}%`;
+const hrsText = value => value === null || value === undefined ? '—' : `${fmt(value)} h`;
+
+function pptxHeader(text) {
+  return { text: String(text), options: { bold: true, color: 'FFFFFF', fill: '092744', align: 'center', valign: 'middle' } };
+}
+
+function pptxTableOptions(options) {
+  const { x, y, w, colW, autoPage = false, autoPageRepeatHeader = false, rowH = 0.3 } = options;
+  return {
+    x, y, w, colW, rowH, autoPage, autoPageRepeatHeader,
+    border: { type: 'solid', color: 'dce7f3', pt: 0.5 },
+    fontSize: 9, color: '17395d', valign: 'middle'
+  };
+}
+
+function addPptxCards(pptx, slide, cards, options) {
+  const { x, y, w, cols, cardH = 1.15 } = options;
+  const gap = 0.2;
+  const cardW = (w - gap * (cols - 1)) / cols;
+  cards.forEach((card, index) => {
+    const col = index % cols;
+    const row = Math.floor(index / cols);
+    const cx = x + col * (cardW + gap);
+    const cy = y + row * (cardH + gap);
+    slide.addShape(pptx.ShapeType.roundRect, { x: cx, y: cy, w: cardW, h: cardH, fill: { color: 'f5f9ff' }, line: { color: 'dce7f3', width: 0.75 }, rectRadius: 0.08 });
+    slide.addText(String(card.value), { x: cx + 0.08, y: cy + 0.14, w: cardW - 0.16, h: cardH * 0.52, fontSize: cardH > 1 ? 19 : 16, bold: true, color: card.color || '0f3c70', align: 'center', valign: 'middle' });
+    slide.addText(String(card.label), { x: cx + 0.06, y: cy + cardH - 0.44, w: cardW - 0.12, h: 0.34, fontSize: 8.5, color: '6d829b', align: 'center', valign: 'middle' });
+  });
+}
+
+async function generatePptx() {
+  if (typeof PptxGenJS === 'undefined') {
+    toast('No se pudo cargar el generador de PowerPoint. Recarga la página e inténtalo de nuevo.');
+    return;
+  }
+  if (!data.schema) {
+    toast('Aún no hay información del programa para generar el reporte.');
+    return;
+  }
+  const button = $('report-pptx');
+  button.disabled = true;
+  try {
+    const start = $('date-start').value;
+    const end = $('date-end').value;
+    const kind = reportPeriod || periodKindFromRange(start, end);
+    const kindLabel = PERIOD_LABELS[kind] || null;
+    const rangeText = formatRange(start, end);
+    const titleSuffix = kindLabel ? `${kindLabel} ` : '';
+
+    const kpiRows = rows('kpi');
+    const bitacoraRows = rows('bitacora');
+    const calendarRows = rows('calendar');
+    const equipmentRows = rows('equipment');
+    const families = familyIndicators(kpiRows);
+    const global = globalIndicators(kpiRows, bitacoraRows, calendarRows);
+
+    const NAVY = '092744', BLUE = '1476df', CYAN = '16b5e5', INK = '17395d', MUTED = '6d829b';
+    const W = 13.333, H = 7.5;
+
+    const pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_WIDE';
+    pptx.author = REPORT_BRAND;
+    pptx.company = REPORT_BRAND;
+    pptx.subject = `Reporte ${titleSuffix}de mantenimiento`;
+    pptx.title = `${REPORT_UNIT} · Reporte ${titleSuffix}${rangeText}`;
+
+    const addFooter = slide => {
+      slide.addText(`${REPORT_BRAND} · ${REPORT_UNIT}`, { x: 0.55, y: H - 0.44, w: 7, h: 0.3, fontSize: 8, color: MUTED });
+      slide.addText(`Reporte ${titleSuffix}${rangeText}`, { x: W - 7.55, y: H - 0.44, w: 7, h: 0.3, fontSize: 8, color: MUTED, align: 'right' });
+    };
+
+    let slide = pptx.addSlide();
+    slide.background = { color: NAVY };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.22, fill: { color: CYAN } });
+    slide.addText(REPORT_BRAND, { x: 1.0, y: 1.75, w: 11.3, h: 0.5, fontSize: 20, bold: true, color: 'FFFFFF', charSpacing: 5 });
+    slide.addText('MANTENIMIENTO', { x: 1.0, y: 2.3, w: 11.3, h: 0.4, fontSize: 13, color: CYAN, charSpacing: 7 });
+    slide.addText('Resultados Unidad', { x: 1.0, y: 3.05, w: 11.3, h: 0.7, fontSize: 26, color: 'BFD8F2' });
+    slide.addText(REPORT_UNIT, { x: 1.0, y: 3.7, w: 11.3, h: 0.95, fontSize: 40, bold: true, color: 'FFFFFF' });
+    slide.addText(`Reporte ${titleSuffix}${rangeText}`, { x: 1.0, y: 4.85, w: 11.3, h: 0.5, fontSize: 16, color: 'FFFFFF' });
+    slide.addText(`Generado el ${new Date().toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' })}`, { x: 1.0, y: 6.65, w: 11.3, h: 0.4, fontSize: 10, color: '8FB6DC' });
+
+    slide = pptx.addSlide();
+    slide.background = { color: NAVY };
+    slide.addText('MANTENIMIENTO', { x: 0, y: 3.0, w: W, h: 1.0, fontSize: 44, bold: true, color: 'FFFFFF', align: 'center', charSpacing: 6 });
+    slide.addText(`${REPORT_BRAND} · ${REPORT_UNIT}`, { x: 0, y: 4.05, w: W, h: 0.5, fontSize: 14, color: '8FB6DC', align: 'center', charSpacing: 2 });
+
+    slide = pptx.addSlide();
+    slide.addText('Indicadores de mantenimiento', { x: 0.6, y: 0.45, w: 12.1, h: 0.6, fontSize: 24, bold: true, color: NAVY });
+    slide.addText(`Resumen general · ${rangeText}`, { x: 0.6, y: 1.05, w: 12.1, h: 0.4, fontSize: 12, color: MUTED });
+    addPptxCards(pptx, slide, [
+      { label: 'Disponibilidad', value: pctText(global.availability), color: '12a66a' },
+      { label: 'Utilización', value: pctText(global.utilization), color: BLUE },
+      { label: 'TMEF promedio', value: hrsText(global.tmef), color: 'e0673c' },
+      { label: 'TMPR promedio', value: hrsText(global.tmpr), color: '0ba6a7' },
+      { label: 'Horas operadas', value: fmt(global.worked), color: INK },
+      { label: 'Horas MP / MC', value: `${fmt(global.mp)} / ${fmt(global.mc)}`, color: '8052e8' },
+      { label: 'Paros registrados', value: fmt(global.stops, 0), color: 'b43b45' },
+      { label: 'Equipos con KPI', value: String(global.kpiEquipment), color: INK },
+      { label: 'Cortes KPI', value: String(global.cuts), color: INK },
+      { label: 'Capturas de bitácora', value: String(global.logs), color: 'f59b18' },
+      { label: 'Servicios preventivos', value: String(global.services), color: '0ba6a7' },
+      { label: 'Cumplimiento preventivo', value: pctText(global.completion), color: '12a66a' }
+    ], { x: 0.6, y: 1.7, w: 12.1, cols: 4 });
+    addFooter(slide);
+
+    for (const family of families) {
+      slide = pptx.addSlide();
+      slide.addText(`Indicadores · ${family.family}`, { x: 0.55, y: 0.4, w: 12.2, h: 0.55, fontSize: 20, bold: true, color: NAVY });
+      slide.addText(`${family.equipment} equipo(s) · ${family.cuts} corte(s) KPI · ${rangeText}`, { x: 0.55, y: 0.95, w: 12.2, h: 0.35, fontSize: 11, color: MUTED });
+      addPptxCards(pptx, slide, [
+        { label: 'Disponibilidad', value: pctText(family.availability), color: '12a66a' },
+        { label: 'Utilización', value: pctText(family.utilization), color: BLUE },
+        { label: 'Horas operadas', value: fmt(family.worked), color: INK },
+        { label: 'MP / MC (h)', value: `${fmt(family.mp)} / ${fmt(family.mc)}`, color: '8052e8' },
+        { label: 'Paros', value: fmt(family.stops, 0), color: 'b43b45' },
+        { label: 'TMEF / TMPR (h)', value: `${fmt(family.tmef)} / ${fmt(family.tmpr)}`, color: '0ba6a7' }
+      ], { x: 0.55, y: 1.45, w: 12.2, cols: 3, cardH: 0.95 });
+      const items = aggregateByEquipment(family.rows);
+      const table = [['Equipo', 'Descripción', 'Dispon.', 'Utiliz.', 'Horas', 'MP', 'MC', 'Paros', 'Estado'].map(pptxHeader)];
+      for (const item of items) {
+        table.push([
+          { text: item.equipment, options: { bold: true, color: INK } },
+          { text: item.description || '—', options: { color: INK } },
+          { text: pctText(item.availability), options: { align: 'center' } },
+          { text: pctText(item.utilization), options: { align: 'center' } },
+          { text: fmt(item.worked_hours), options: { align: 'center' } },
+          { text: fmt(item.mp_hours), options: { align: 'center' } },
+          { text: fmt(item.mc_hours), options: { align: 'center' } },
+          { text: fmt(item.stops, 0), options: { align: 'center' } },
+          { text: String(item.status || '—'), options: { align: 'center' } }
+        ]);
+      }
+      slide.addTable(table, pptxTableOptions({ x: 0.55, y: 3.45, w: 12.2, colW: [1.4, 3.6, 1.15, 1.15, 1.05, 0.95, 0.95, 0.95, 1.0], autoPage: items.length > 8, autoPageRepeatHeader: items.length > 8 }));
+      addFooter(slide);
+    }
+
+    const conditionRows = [['Equipo', 'No. económico', 'Condición', 'Observaciones'].map(pptxHeader)];
+    const byFamily = new Map();
+    for (const row of equipmentRows) {
+      const family = familyLabel(row.family);
+      if (!byFamily.has(family)) byFamily.set(family, []);
+      byFamily.get(family).push(row);
+    }
+    const familyNames = [...byFamily.keys()].sort((a, b) => String(a).localeCompare(String(b), 'es'));
+    for (const family of familyNames) {
+      conditionRows.push([{ text: family, options: { colspan: 4, bold: true, color: '0f3c70', fill: 'eaf1f9', align: 'left' } }]);
+      for (const row of byFamily.get(family).sort((a, b) => String(a.code).localeCompare(String(b.code), 'es'))) {
+        conditionRows.push([
+          { text: row.description || row.code, options: { color: INK } },
+          { text: row.code || '—', options: { align: 'center', bold: true } },
+          { text: String(row.status || '—'), options: { align: 'center' } },
+          { text: '', options: {} }
+        ]);
+      }
+    }
+    slide = pptx.addSlide();
+    slide.addText('Condición de equipos', { x: 0.55, y: 0.4, w: 12.2, h: 0.55, fontSize: 22, bold: true, color: NAVY });
+    slide.addText(`${equipmentRows.length} equipo(s) · ${familyNames.length} familia(s) · ${rangeText}`, { x: 0.55, y: 0.95, w: 12.2, h: 0.35, fontSize: 11, color: MUTED });
+    if (conditionRows.length > 1) {
+      slide.addTable(conditionRows, pptxTableOptions({ x: 0.55, y: 1.45, w: 12.2, colW: [5.0, 1.9, 1.9, 3.4], rowH: 0.28, autoPage: true, autoPageRepeatHeader: true }));
+    } else {
+      slide.addText('Sin equipos para los filtros seleccionados.', { x: 0.55, y: 1.6, w: 12.2, h: 0.4, fontSize: 12, color: MUTED });
+    }
+    addFooter(slide);
+
+    await pptx.writeFile({ fileName: `Reporte_${kindLabel || 'Mantenimiento'}_${start || 'periodo'}.pptx` });
+    toast(`Reporte ${kindLabel ? kindLabel.toLocaleLowerCase('es-MX') : 'de mantenimiento'} generado: ${equipmentRows.length} equipos · ${kpiRows.length} cortes KPI.`);
+  } catch (error) {
+    toast(`No se pudo generar el reporte: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderTrend(kpiRows) {
@@ -540,6 +853,8 @@ function render() {
   $('footer-updated').textContent = updated;
   $('data-tag').textContent = data.schema ? 'CORTE DEL PROGRAMA' : 'SIN DATOS';
   $('report-period').textContent = `${$('date-start').value || data.meta?.periodStart || '—'} a ${$('date-end').value || data.meta?.periodEnd || '—'} · KPI ${kpiRows.length} · Bitácora ${bitacoraRows.length} · Calendario ${calendarRows.length}`;
+  const periodName = PERIOD_LABELS[reportPeriod];
+  $('report-pptx-range').textContent = `${periodName ? `Periodo ${periodName}` : 'Periodo seleccionado'}: ${formatRange($('date-start').value, $('date-end').value)} · ${kpiRows.length} cortes KPI · ${equipmentRows.length} equipos`;
   renderReportScope(kpiRows, bitacoraRows, calendarRows, equipmentRows);
   updatePrintHead();
 }
@@ -680,6 +995,7 @@ $('clear-filters').addEventListener('click', () => {
   ['family-filter', 'equipment-filter', 'shift-filter', 'status-filter', 'condition-filter', 'type-filter'].forEach(id => { $(id).value = ''; });
   $('date-start').value = data.meta?.periodStart || '';
   $('date-end').value = data.meta?.periodEnd || '';
+  clearPeriodSelection();
   render();
 });
 $('apply-filters').addEventListener('click', render);
@@ -688,6 +1004,13 @@ $('load-data').addEventListener('click', () => $('file-input').click());
 $('file-input').addEventListener('change', event => loadLocal(event.target.files?.[0]));
 ['export-excel', 'quick-excel', 'report-excel'].forEach(id => $(id).addEventListener('click', csvExport));
 ['export-pdf', 'quick-pdf', 'report-pdf'].forEach(id => $(id).addEventListener('click', printReport));
+document.querySelectorAll('#period-toggle [data-period]').forEach(button => button.addEventListener('click', () => applyPeriod(button.dataset.period)));
+$('report-pptx').addEventListener('click', generatePptx);
+['date-start', 'date-end'].forEach(id => $(id).addEventListener('change', () => {
+  if (!reportPeriod) return;
+  clearPeriodSelection();
+  render();
+}));
 
 document.addEventListener('click', event => {
   const trigger = event.target.closest('[data-equipment]');
