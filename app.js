@@ -1006,6 +1006,17 @@ $('file-input').addEventListener('change', event => loadLocal(event.target.files
 ['export-pdf', 'quick-pdf', 'report-pdf'].forEach(id => $(id).addEventListener('click', printReport));
 document.querySelectorAll('#period-toggle [data-period]').forEach(button => button.addEventListener('click', () => applyPeriod(button.dataset.period)));
 $('report-pptx').addEventListener('click', generatePptx);
+  $('report-pdf-calendario').addEventListener('click', () => {
+    const start = $('date-start').value;
+    const end = $('date-end').value;
+    if (!start || !end) {
+      toast('Selecciona un periodo primero.');
+      return;
+    }
+    document.body.classList.add('printing');
+    window.print();
+    setTimeout(() => document.body.classList.remove('printing'), 1000);
+  });
 ['date-start', 'date-end'].forEach(id => $(id).addEventListener('change', () => {
   if (!reportPeriod) return;
   clearPeriodSelection();

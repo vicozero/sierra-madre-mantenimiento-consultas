@@ -9,6 +9,7 @@
   <link rel="icon" href="./assets/logo.png">
   <link rel="stylesheet" href="./styles.css">
   <script src="./assets/pptxgen.bundle.js" defer></script>
+  <script src="./assets/jspdf.bundle.js" defer></script>
   <script src="./app.js" defer></script>
 </head>
 <body>
@@ -170,6 +171,26 @@
 
     <section id="view-calendario" class="view">
       <div class="section-heading"><div><div class="eyebrow">PREVENTIVOS</div><h2>Calendario de servicio</h2><p>Servicios programados, proyectados y completados dentro del periodo. Un registro por equipo.</p></div><span class="count-pill" id="calendar-count">0 servicios</span></div>
+      <div class="calendar-feature">
+        <div class="calendar-feature-head">
+          <div class="calendar-feature-info">
+            <span class="report-icon">▤</span>
+            <div><h3>Generar PDF del calendario</h3><p>Descarga un PDF con el almanaque del periodo seleccionado (igual que el ejemplo adjunto).</p></div>
+          </div>
+          <div class="period-picker">
+            <span>Periodo</span>
+            <div class="period-toggle" id="period-toggle-cal" role="group" aria-label="Periodo del calendario">
+              <button type="button" data-period="mensual">Mensual</button>
+              <button type="button" data-period="semanal">Semanal</button>
+              <button type="button" data-period="diario">Diario</button>
+            </div>
+          </div>
+        </div>
+        <div class="calendar-feature-foot">
+          <button class="button button-primary" id="report-pdf-calendario"><span>▤</span> Generar PDF</button>
+          <span id="report-pdf-range">—</span>
+        </div>
+      </div>
       <article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Servicio / gama</th><th>Tipo</th><th>Medidor</th><th>Objetivo</th><th>Estado</th><th>Servicios</th></tr></thead><tbody id="calendar-table"></tbody></table></div></article>
     </section>
 
