@@ -140,6 +140,37 @@ function groupFamilies(list) {
   })).sort((a, b) => (b.availability ?? -1) - (a.availability ?? -1));
 }
 
+function aggregateByEquipment(list) {
+  const groups = new Map();
+  for (const row of list) {
+    const code = row.equipment;
+    if (!code) continue;
+    if (!groups.has(code)) groups.set(code, []);
+    groups.get(code).push(row);
+  }
+  const total = (items, key) => items.reduce((sum, item) => sum + (num(item[key]) || 0), 0);
+  return [...groups].map(([equipment, items]) => {
+    const sorted = [...items].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const last = sorted.at(-1) || items[0];
+    const withDescription = items.find(row => row.description) || last;
+    const withFamily = items.find(row => row.family) || last;
+    return {
+      equipment,
+      description: withDescription.description || '',
+      family: withFamily.family || '',
+      status: last.status,
+      availability: average(items, 'availability'),
+      utilization: average(items, 'utilization'),
+      worked_hours: total(items, 'worked_hours'),
+      mp_hours: total(items, 'mp_hours'),
+      mc_hours: total(items, 'mc_hours'),
+      stops: total(items, 'stops'),
+      cuts: items.length,
+      lastDate: last.date
+    };
+  }).sort((a, b) => String(a.equipment).localeCompare(String(b.equipment), 'es'));
+}
+
 function renderTrend(kpiRows) {
   const host = $('availability-trend');
   const daily = new Map();
@@ -444,6 +475,7 @@ function renderReportScope(kpiRows, bitacoraRows, calendarRows, equipmentRows) {
 
 function render() {
   const kpiRows = rows('kpi');
+  const kpiByEquipment = aggregateByEquipment(kpiRows);
   const bitacoraRows = rows('bitacora');
   const calendarRows = rows('calendar');
   const equipmentRows = rows('equipment');
@@ -468,15 +500,15 @@ function render() {
   renderTrend(kpiRows);
   renderFamilyPanel(kpiRows);
   renderComparison(kpiRows);
-  renderImpact(kpiRows);
+  renderImpact(kpiByEquipment);
   renderReliability(kpiRows);
   renderStops(kpiRows);
   renderHours(kpiRows);
   renderTop(kpiRows);
   renderSummary(kpiRows, bitacoraRows, calendarRows);
-  $('kpi-count').textContent = `${new Set(kpiRows.map(row => row.equipment).filter(Boolean)).size} equipos · ${kpiRows.length} cortes`;
+  $('kpi-count').textContent = `${kpiByEquipment.length} equipos · ${kpiRows.length} cortes`;
 
-  setRows('kpi-table', kpiRows, 9, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0"><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${fmt(row.availability)}%</td><td>${fmt(row.utilization)}%</td><td>${fmt(row.worked_hours)}</td><td>${fmt(row.mp_hours)}</td><td>${fmt(row.mc_hours)}</td><td>${fmt(row.stops, 0)}</td><td>${badge(row.status)}</td></tr>`);
+  setRows('kpi-table', kpiByEquipment, 9, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0" title="${row.cuts} corte(s) KPI en el periodo"><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${fmt(row.availability)}%</td><td>${fmt(row.utilization)}%</td><td>${fmt(row.worked_hours)}</td><td>${fmt(row.mp_hours)}</td><td>${fmt(row.mc_hours)}</td><td>${fmt(row.stops, 0)}</td><td>${badge(row.status)}</td></tr>`);
   setRows('bitacora-table', bitacoraRows, 12, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0"><td>${formatDate(row.date)}</td><td><b>${esc(row.equipment)}</b></td><td>${esc(row.family)}</td><td>${esc(row.shift)}</td><td>${esc(row.component)}</td><td>${fmt(row.hi)}</td><td>${fmt(row.hf)}</td><td>${fmt(row.worked_hours)}</td><td>${fmt(row.mp_hours)}</td><td>${fmt(row.mc_hours)}</td><td>${fmt(row.stops, 0)}</td><td>${badge(row.status)}</td></tr>`);
   setRows('calendar-table', calendarRows, 8, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0"><td>${formatDate(row.date)}</td><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${esc(row.service)}</td><td>${esc(row.type)}</td><td>${fmt(row.meter)} ${esc(row.unit)}</td><td>${fmt(row.target)} ${esc(row.unit)}</td><td>${badge(row.status)}</td></tr>`);
   setRows('equipment-table', equipmentRows, 4, row => `<tr data-equipment="${esc(row.code)}" tabindex="0"><td><b>${esc(row.code)}</b></td><td>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${badge(row.status)}</td></tr>`);
