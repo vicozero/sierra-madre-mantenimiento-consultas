@@ -13,3 +13,5 @@ El paquete contiene KPI por equipo, capturas resumidas de bitácora y servicios 
 ## Desarrollo
 
 El sitio es estático y se publica con GitHub Actions en GitHub Pages. No tiene escritura ni conexión al SQLite, no envía archivos y no almacena las cargas en el servidor. El contrato aceptado es `sierra-madre-consultas/v1` con arreglos `equipment`, `kpi`, `bitacora` y `calendar`.
+
+Si `data/consulta.json` existe, se carga automáticamente para todo visitante. Esa copia queda pública en GitHub Pages; vuelve a generarla y publícala solo cuando el corte de datos deba actualizarse.
