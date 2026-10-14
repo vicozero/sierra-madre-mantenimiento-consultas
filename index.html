@@ -1,12 +1,200 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0b2340"><meta name="description" content="Consulta informativa de KPI, bitácora y calendario del programa Sierra Madre Mantenimiento."><title>Consultas de mantenimiento | Sierra Madre</title><link rel="stylesheet" href="./styles.css"><script src="./app.js" defer></script></head>
-<body><aside class="sidebar"><a class="brand" href="#inicio"><img class="brand-mark" src="./assets/logo.png" alt=""><span><b>SIERRA MADRE</b><small>MANTENIMIENTO</small></span></a><div class="side-caption">CONSULTAS DEL PROGRAMA</div><nav id="navigation" aria-label="Secciones"><button class="nav-item active" data-view="inicio"><span>⌂</span> Resumen KPI</button><button class="nav-item" data-view="bitacora"><span>▤</span> Bitácora</button><button class="nav-item" data-view="calendario"><span>▦</span> Calendario de servicio</button><button class="nav-item" data-view="equipos"><span>▣</span> Equipos</button></nav><div class="side-bottom"><span class="status-dot"></span><span><b>Modo informativo</b><small id="data-status">Sin archivo cargado</small></span></div><p class="side-foot">Solo lectura<br>La Guitarra</p></aside>
-<main class="main" id="inicio"><header class="topbar"><div class="crumb">Sierra Madre <span>/</span> <b id="crumb-current">Resumen KPI</b></div><div class="top-actions"><span class="read-only">SOLO LECTURA</span><button class="button button-quiet" id="load-data">Abrir paquete del programa</button><input id="file-input" type="file" accept=".json,application/json" hidden></div></header>
-<section class="welcome"><div><div class="eyebrow">CONSULTA DE MANTENIMIENTO</div><h1 id="page-title">Información del programa</h1><p id="page-subtitle">KPI, bitácora y calendario de servicio en una sola página.</p></div><div class="date-chip"><span>ACTUALIZADO</span><b id="updated-at">—</b></div></section>
-<section class="notice" id="public-notice"><span class="notice-icon">i</span><div><b>Conecta una exportación de Mantenimiento</b><p>Esta página no contiene datos de demostración. Abre el paquete JSON generado por Mantenimiento; se procesa únicamente en tu navegador y no se envía a GitHub.</p></div></section>
-<section class="filters" aria-label="Filtros"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Buscar equipo o servicio" autocomplete="off"></label><label class="filter-field"><span>Familia</span><select id="family-filter"><option value="">Todas las familias</option></select></label><label class="filter-field"><span>Desde</span><input id="date-start" type="date"></label><label class="filter-field"><span>Hasta</span><input id="date-end" type="date"></label><button class="button button-outline" id="clear-filters">Limpiar</button></section>
-<section class="report-actions"><span id="report-period">Selecciona un paquete para consultar y exportar.</span><div><button class="button button-outline" id="export-excel">Descargar Excel (CSV)</button><button class="button button-primary" id="export-pdf">Imprimir / Guardar PDF</button></div></section>
-<section id="view-inicio" class="view active-view"><div class="section-heading"><div><div class="eyebrow">INDICADORES DEL FORMATO KPI</div><h2>Resumen operativo</h2></div><span class="data-tag" id="data-tag">SIN DATOS</span></div><div class="metrics" id="metrics"></div><div class="dashboard-grid"><article class="panel"><div class="panel-head"><div><h3>Disponibilidad por familia</h3><p>Promedio del KPI filtrado</p></div></div><div id="family-chart" class="bar-chart"></div></article><article class="panel panel-insight"><div class="eyebrow">CONSULTA</div><h3>Reportes de mantenimiento</h3><p>Consulta indicadores, capturas de bitácora y servicios preventivos programados o completados.</p><div class="quick-links"><button data-view="bitacora">Abrir bitácora →</button><button data-view="calendario">Ver calendario →</button></div></article></div><article class="panel"><div class="panel-head"><div><h3>KPI por equipo</h3><p>Indicadores del periodo seleccionado</p></div></div><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Familia</th><th>Disponibilidad</th><th>Utilización</th><th>Horas operadas</th><th>MP</th><th>MC</th><th>Paros</th><th>Estado</th></tr></thead><tbody id="kpi-table"></tbody></table></div></article></section>
-<section id="view-bitacora" class="view"><div class="section-heading"><div><div class="eyebrow">CAPTURAS OPERATIVAS</div><h2>Bitácora de equipos</h2><p>Lecturas de medidor, horas y estado por fecha y turno.</p></div><span class="count-pill" id="bitacora-count">0 registros</span></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Turno</th><th>Componente</th><th>HI</th><th>HF</th><th>Horas trabajadas</th><th>MP</th><th>MC</th><th>Paros</th><th>Estado</th></tr></thead><tbody id="bitacora-table"></tbody></table></div></article></section>
-<section id="view-calendario" class="view"><div class="section-heading"><div><div class="eyebrow">PREVENTIVOS</div><h2>Calendario de servicio</h2><p>Servicios programados, proyectados y completados dentro del periodo.</p></div><span class="count-pill" id="calendar-count">0 servicios</span></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Servicio / gama</th><th>Tipo</th><th>Medidor</th><th>Objetivo</th><th>Estado</th></tr></thead><tbody id="calendar-table"></tbody></table></div></article></section>
-<section id="view-equipos" class="view"><div class="section-heading"><div><div class="eyebrow">CATÁLOGO</div><h2>Equipos</h2><p>Catálogo consultivo del programa.</p></div><span class="count-pill" id="equipment-count">0 equipos</span></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>N.º económico</th><th>Descripción</th><th>Familia</th><th>Estado</th></tr></thead><tbody id="equipment-table"></tbody></table></div></article></section><footer class="footer"><span>SIERRA MADRE · MANTENIMIENTO</span><span>Consulta de solo lectura · <span id="footer-updated">Sin paquete</span></span></footer></main><div class="toast" id="toast" role="status" aria-live="polite"></div></body></html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#092744">
+  <meta name="description" content="Portal informativo para consultar los indicadores, bitácora, calendario y equipos de Sierra Madre Mantenimiento.">
+  <title>Consultas de mantenimiento | Sierra Madre</title>
+  <link rel="icon" href="./assets/logo.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#inicio" aria-label="Sierra Madre Mantenimiento">
+      <img class="brand-mark" src="./assets/logo.png" alt="Logo Sierra Madre">
+      <span><b>SIERRA MADRE</b><small>MANTENIMIENTO</small></span>
+    </a>
+    <div class="side-caption">CONSULTAS DEL PROGRAMA</div>
+    <nav aria-label="Secciones del portal">
+      <button class="nav-item active" data-view="inicio"><span>⌂</span> Resumen KPI</button>
+      <button class="nav-item" data-view="bitacora"><span>▤</span> Bitácora</button>
+      <button class="nav-item" data-view="calendario"><span>▦</span> Calendario de servicio</button>
+      <button class="nav-item" data-view="equipos"><span>▣</span> Equipos</button>
+      <button class="nav-item" data-view="reportes"><span>▧</span> Reportes</button>
+    </nav>
+    <div class="side-status">
+      <span class="status-dot"></span>
+      <span><b id="connection-label">Conectando</b><small id="data-status">Consultando programa…</small></span>
+    </div>
+    <div class="side-motto">MANTENEMOS<br>LA OPERACIÓN<br>EN MOVIMIENTO</div>
+    <p class="side-foot">Consulta informativa · Solo lectura</p>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="crumb">Sierra Madre <span>/</span> <b id="crumb-current">Resumen KPI</b></div>
+      <div class="top-actions">
+        <span class="read-only">SOLO LECTURA</span>
+        <span class="user-chip"><span class="user-icon">SM</span><span><b>Consulta</b><small>Mantenimiento</small></span></span>
+      </div>
+    </header>
+
+    <div class="print-head" id="print-head">
+      <img class="print-logo" src="./assets/logo.png" alt="Logo Sierra Madre">
+      <div class="print-brand"><b>SIERRA MADRE</b><span>MANTENIMIENTO</span></div>
+      <div class="print-title"><b id="print-title">Resumen KPI</b><span id="print-subtitle">—</span></div>
+      <div class="print-meta">
+        <span id="print-period">—</span>
+        <span id="print-filters">—</span>
+        <span id="print-generated">—</span>
+      </div>
+    </div>
+
+    <section class="welcome">
+      <div>
+        <div class="eyebrow">CONSULTA DE MANTENIMIENTO</div>
+        <h1 id="page-title">Información del programa</h1>
+        <p id="page-subtitle">KPI, bitácora y calendario de servicio en una sola página.</p>
+      </div>
+      <div class="date-chip">
+        <span><span class="calendar-icon">▦</span> PERIODO ACTUALIZADO</span>
+        <b id="updated-at">—</b>
+        <button class="icon-button" id="refresh-data" title="Actualizar información" aria-label="Actualizar información">⟳</button>
+      </div>
+    </section>
+
+    <section class="notice" id="public-notice" hidden>
+      <span class="notice-icon">i</span>
+      <div><b>No hay conexión con el último corte publicado</b><p>Puedes consultar un paquete JSON local. La información se procesa en este navegador y no se carga en GitHub.</p></div>
+      <button class="button button-outline" id="load-data">Abrir paquete</button>
+      <input id="file-input" type="file" accept=".json,application/json" hidden>
+    </section>
+
+    <section class="filters" aria-label="Filtros de consulta">
+      <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Buscar equipo o servicio…" autocomplete="off"></label>
+      <label class="filter-field"><span>Familia</span><select id="family-filter"><option value="">Todas las familias</option></select></label>
+      <label class="filter-field"><span>Equipo</span><select id="equipment-filter"><option value="">Todos los equipos</option></select></label>
+      <label class="filter-field"><span>Turno</span><select id="shift-filter"><option value="">Todos</option></select></label>
+      <label class="filter-field"><span>Estado</span><select id="status-filter"><option value="">Todos los estados</option></select></label>
+      <label class="filter-field"><span>Condición</span><select id="condition-filter">
+        <option value="">Todas</option>
+        <option value="disponible">Disponible</option>
+        <option value="riesgo">En riesgo</option>
+        <option value="critico">Crítico</option>
+        <option value="sindato">Sin captura / sin dato</option>
+      </select></label>
+      <label class="filter-field"><span>Tipo de servicio</span><select id="type-filter"><option value="">Todos los tipos</option></select></label>
+      <label class="filter-field date-range"><span>Desde</span><input id="date-start" type="date"></label>
+      <label class="filter-field date-range"><span>Hasta</span><input id="date-end" type="date"></label>
+      <button class="button button-outline" id="clear-filters">Limpiar</button>
+      <button class="button button-primary" id="apply-filters"><span>⟳</span> Actualizar</button>
+    </section>
+
+    <section class="report-actions">
+      <span id="report-period">Esperando el primer corte del programa.</span>
+      <span class="data-tag" id="data-tag">SIN DATOS</span>
+      <div>
+        <button class="button button-outline" id="export-excel">⇩ Exportar Excel</button>
+        <button class="button button-primary" id="export-pdf">▣ Generar PDF</button>
+      </div>
+    </section>
+
+    <section id="view-inicio" class="view active-view">
+      <div class="metrics" id="metrics"></div>
+      <div class="dashboard-grid dashboard-main-grid">
+        <article class="panel trend-panel">
+          <div class="panel-head"><div><h3>Disponibilidad mecánica</h3><p>Comportamiento por corte KPI disponible</p></div><span class="legend-dot">Actual</span></div>
+          <div id="availability-trend" class="trend-chart"></div>
+          <div class="chart-foot"><span id="trend-start">—</span><span id="trend-end">—</span></div>
+        </article>
+        <article class="panel family-panel">
+          <div class="panel-head"><div><h3>Disponibilidad por familia</h3><p>Promedio de los equipos filtrados</p></div></div>
+          <div class="family-content"><div id="family-donut" class="donut-wrap"></div><div id="family-legend" class="family-legend"></div></div>
+        </article>
+      </div>
+      <div class="dashboard-grid dashboard-lower-grid">
+        <article class="panel compare-panel">
+          <div class="panel-head"><div><h3>Disponibilidad por familia <span class="subtle-title">(comparativo)</span></h3><p>Periodo seleccionado frente al corte anterior disponible</p></div><div class="compare-legend"><span><i class="dot-current"></i>Actual</span><span><i class="dot-previous"></i>Anterior</span></div></div>
+          <div id="family-comparison" class="comparison-chart"></div>
+        </article>
+        <article class="panel impact-panel">
+          <div class="panel-head"><div><h3>Equipos con menor disponibilidad</h3><p>Prioridad para revisión operativa</p></div><button class="text-link" data-view="equipos">Ver equipos →</button></div>
+          <div class="table-wrap compact-table"><table><thead><tr><th>Equipo</th><th>Familia</th><th>Disponibilidad</th><th>Estado</th></tr></thead><tbody id="impact-table"></tbody></table></div>
+        </article>
+        <article class="panel quick-panel">
+          <div class="panel-head"><div><h3>Acciones rápidas</h3><p>Consulta y exporta</p></div></div>
+          <div class="quick-actions">
+            <button data-view="bitacora"><span>▤</span> Ver bitácora <b>›</b></button>
+            <button data-view="calendario"><span>▦</span> Calendario de servicios <b>›</b></button>
+            <button data-view="equipos"><span>▣</span> Consultar equipos <b>›</b></button>
+            <button id="quick-pdf"><span>▧</span> Generar reporte PDF <b>›</b></button>
+            <button id="quick-excel"><span>⇩</span> Exportar a Excel <b>›</b></button>
+          </div>
+        </article>
+      </div>
+      <div class="dashboard-grid dashboard-insight-grid">
+        <article class="panel reliability-panel">
+          <div class="panel-head"><div><h3>Confiabilidad · TMEF / TMPR</h3><p>Promedio por familia (horas)</p></div><div class="compare-legend"><span><i class="dot-current"></i>TMEF</span><span><i class="dot-orange"></i>TMPR</span></div></div>
+          <div id="reliability-chart" class="comparison-chart"></div>
+        </article>
+        <article class="panel stops-panel">
+          <div class="panel-head"><div><h3>Paros por familia</h3><p>Total de paros en el periodo</p></div></div>
+          <div id="stops-chart" class="comparison-chart"></div>
+        </article>
+        <article class="panel hours-panel">
+          <div class="panel-head"><div><h3>Horas de mantenimiento · MP / MC</h3><p>Horas por familia</p></div><div class="compare-legend"><span><i class="dot-current"></i>MP</span><span><i class="dot-orange"></i>MC</span></div></div>
+          <div id="hours-chart" class="comparison-chart"></div>
+        </article>
+        <article class="panel top-panel">
+          <div class="panel-head"><div><h3>Top equipos por horas operadas</h3><p>Mayor utilización en el periodo</p></div></div>
+          <div id="top-chart" class="comparison-chart"></div>
+        </article>
+      </div>
+      <article class="panel summary-panel">
+        <div class="panel-head"><div><h3>Resumen operativo</h3><p>Totales del periodo y filtros actuales</p></div></div>
+        <div class="summary-items" id="operational-summary"></div>
+      </article>
+      <article class="panel data-table-panel">
+        <div class="panel-head"><div><h3>KPI por equipo</h3><p>Indicadores del periodo seleccionado · haz clic en un equipo para ver su ficha</p></div><span class="count-pill" id="kpi-count">0 equipos</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Familia</th><th>Disponibilidad</th><th>Utilización</th><th>Horas operadas</th><th>MP</th><th>MC</th><th>Paros</th><th>Estado</th></tr></thead><tbody id="kpi-table"></tbody></table></div>
+      </article>
+    </section>
+
+    <section id="view-bitacora" class="view">
+      <div class="section-heading"><div><div class="eyebrow">CAPTURAS OPERATIVAS</div><h2>Bitácora de equipos</h2><p>Lecturas de medidor, horas y estado por fecha y turno.</p></div><span class="count-pill" id="bitacora-count">0 registros</span></div>
+      <article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Turno</th><th>Componente</th><th>HI</th><th>HF</th><th>Horas trabajadas</th><th>MP</th><th>MC</th><th>Paros</th><th>Estado</th></tr></thead><tbody id="bitacora-table"></tbody></table></div></article>
+    </section>
+
+    <section id="view-calendario" class="view">
+      <div class="section-heading"><div><div class="eyebrow">PREVENTIVOS</div><h2>Calendario de servicio</h2><p>Servicios programados, proyectados y completados dentro del periodo.</p></div><span class="count-pill" id="calendar-count">0 servicios</span></div>
+      <article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Servicio / gama</th><th>Tipo</th><th>Medidor</th><th>Objetivo</th><th>Estado</th></tr></thead><tbody id="calendar-table"></tbody></table></div></article>
+    </section>
+
+    <section id="view-equipos" class="view">
+      <div class="section-heading"><div><div class="eyebrow">CATÁLOGO</div><h2>Equipos</h2><p>Catálogo consultivo del programa.</p></div><span class="count-pill" id="equipment-count">0 equipos</span></div>
+      <article class="panel"><div class="table-wrap"><table><thead><tr><th>N.º económico</th><th>Descripción</th><th>Familia</th><th>Estado</th></tr></thead><tbody id="equipment-table"></tbody></table></div></article>
+    </section>
+
+    <section id="view-reportes" class="view">
+      <div class="section-heading"><div><div class="eyebrow">SALIDAS DEL PORTAL</div><h2>Reportes de mantenimiento</h2><p>Genera archivos con el periodo, la familia y el turno seleccionados.</p></div></div>
+      <div class="report-grid">
+        <article class="panel report-card"><span class="report-icon">▧</span><h3>Reporte en PDF</h3><p>Abre la impresión del resumen consultado; puedes guardarlo como PDF desde el navegador.</p><button class="button button-primary" id="report-pdf">Generar PDF</button></article>
+        <article class="panel report-card"><span class="report-icon">⇩</span><h3>Datos para Excel</h3><p>Descarga un archivo CSV compatible con Excel para la sección que estás consultando.</p><button class="button button-primary" id="report-excel">Exportar CSV para Excel</button></article>
+      </div>
+      <article class="panel"><div class="panel-head"><div><h3>Alcance del reporte</h3><p id="report-scope">—</p></div></div><div id="report-breakdown" class="report-breakdown"></div></article>
+    </section>
+
+    <footer class="footer"><span>SIERRA MADRE · MANTENIMIENTO</span><span>Consulta de solo lectura · Actualizado <span id="footer-updated">Sin paquete</span></span></footer>
+  </main>
+  <div class="modal" id="equipment-modal" hidden>
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" type="button" data-modal-close aria-label="Cerrar ficha">✕</button>
+      <div id="equipment-detail"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
