@@ -1,38 +1,15 @@
-# Portal de consulta de mantenimiento Sierra Madre
+# Consultas de mantenimiento Sierra Madre
 
-Sitio estático, adaptable a móvil, para consultar indicadores del programa de mantenimiento. Funciona en GitHub Pages y no necesita servidor propio ni dependencias de compilación.
+Portal público de solo lectura para consultar datos exportados de los módulos KPI, bitácora y calendario de servicio. No contiene datos de ejemplo ni consulta directamente el sistema local.
 
-## Seguridad y alcance
+## Uso
 
-- El sitio está diseñado para ser público. Incluye exclusivamente filas ficticias `DEMO-*`.
-- No subas aquí `mantenimiento.db`, respaldos, capturas reales, nombres de empleados, órdenes con observaciones ni otros datos internos.
-- Al cargar un JSON, el navegador lo procesa localmente y solo lo mantiene en memoria durante la sesión. No se carga al repositorio ni a un servicio remoto.
-- Para una consulta en vivo de información real se necesita una API autenticada y autorización por usuario; una página pública de GitHub Pages no puede custodiar secretos ni acceder directamente al archivo SQLite de una PC.
+1. En el equipo que tiene Mantenimiento, genera el paquete de consulta: `Mantenimiento.exe --export-portal-json C:\Users\Public\Documents\consulta_mantenimiento.json`. El periodo exportado es el mes actual.
+2. Abre el portal de GitHub Pages y pulsa **Abrir paquete del programa**. El JSON se procesa en el navegador y no se transmite a GitHub.
+3. Filtra por fechas, familia y equipo. **Descargar Excel (CSV)** exporta la tabla del módulo abierto en un formato que Excel puede abrir; **Imprimir / Guardar PDF** abre la impresión del módulo actual.
 
-## Publicar con GitHub Pages
+El paquete contiene KPI por equipo, capturas resumidas de bitácora y servicios del calendario, así como un catálogo básico. Omite responsables, observaciones libres, evidencia y costos. Para publicar datos disponibles para cualquier visitante, se requeriría subir el JSON como archivo público; este portal no lo hace automáticamente.
 
-1. Crea un repositorio separado para el portal. Si el sitio solo muestra la demostración, el repositorio puede ser público.
-2. Copia el contenido de esta carpeta en la raíz del repositorio.
-3. Copia `.github/workflows/pages.yml` junto con los archivos en la raíz del repositorio.
-4. En GitHub, abre **Settings → Pages** y selecciona **GitHub Actions** como fuente de publicación.
-5. La dirección se verá como `https://USUARIO.github.io/REPOSITORIO/` cuando el workflow termine.
+## Desarrollo
 
-## Cargar datos de consulta
-
-Usa **Cargar archivo JSON** para abrir un archivo local. No se guarda en GitHub. Las secciones disponibles son `equipment`, `availability`, `preventive`, `diesel` y `parts`. El ejemplo completo está en `data/demo.json` y cada propiedad es opcional.
-
-Ejemplo mínimo:
-
-```json
-{
-  "meta": {"updatedAt": "2026-10-14", "demo": false},
-  "equipment": [
-    {"code":"DEMO-01","description":"Equipo de ejemplo","family":"Cargadores","status":"Disponible","last_meter":1200,"meter_unit":"h","hp":215,"kw":160}
-  ],
-  "availability": [
-    {"date":"2026-10-14","equipment":"DEMO-01","family":"Cargadores","availability":96.2,"utilization":78.4,"last_hf":1200}
-  ]
-}
-```
-
-El archivo se valida al cargarlo. Si falta una sección, se muestra vacía; los datos faltantes se muestran como `—`, nunca como cero.
+El sitio es estático y se publica con GitHub Actions en GitHub Pages. No tiene escritura ni conexión al SQLite, no envía archivos y no almacena las cargas en el servidor. El contrato aceptado es `sierra-madre-consultas/v1` con arreglos `equipment`, `kpi`, `bitacora` y `calendar`.
