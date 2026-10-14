@@ -165,10 +165,28 @@ function aggregateByEquipment(list) {
       mp_hours: total(items, 'mp_hours'),
       mc_hours: total(items, 'mc_hours'),
       stops: total(items, 'stops'),
-      cuts: items.length,
-      lastDate: last.date
+      tmef: average(items.filter(row => (num(row.tmef) || 0) > 0), 'tmef'),
+      tmpr: average(items.filter(row => (num(row.tmpr) || 0) > 0), 'tmpr'),
+      date: last.date,
+      cuts: items.length
     };
   }).sort((a, b) => String(a.equipment).localeCompare(String(b.equipment), 'es'));
+}
+
+function aggregateCalendarByEquipment(list) {
+  const groups = new Map();
+  for (const row of list) {
+    const code = row.equipment;
+    if (!code) continue;
+    if (!groups.has(code)) groups.set(code, []);
+    groups.get(code).push(row);
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  return [...groups].map(([equipment, items]) => {
+    const sorted = [...items].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const next = sorted.find(row => String(row.date).slice(0, 10) >= today) || sorted.at(-1);
+    return { ...next, equipment, services: items.length, dates: sorted.map(row => row.date) };
+  }).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
 
 function renderTrend(kpiRows) {
@@ -478,6 +496,7 @@ function render() {
   const kpiByEquipment = aggregateByEquipment(kpiRows);
   const bitacoraRows = rows('bitacora');
   const calendarRows = rows('calendar');
+  const calendarByEquipment = aggregateCalendarByEquipment(calendarRows);
   const equipmentRows = rows('equipment');
   const availability = average(kpiRows, 'availability');
   const utilization = average(kpiRows, 'utilization');
@@ -510,10 +529,10 @@ function render() {
 
   setRows('kpi-table', kpiByEquipment, 9, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0" title="${row.cuts} corte(s) KPI en el periodo"><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${fmt(row.availability)}%</td><td>${fmt(row.utilization)}%</td><td>${fmt(row.worked_hours)}</td><td>${fmt(row.mp_hours)}</td><td>${fmt(row.mc_hours)}</td><td>${fmt(row.stops, 0)}</td><td>${badge(row.status)}</td></tr>`);
   setRows('bitacora-table', bitacoraRows, 12, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0"><td>${formatDate(row.date)}</td><td><b>${esc(row.equipment)}</b></td><td>${esc(row.family)}</td><td>${esc(row.shift)}</td><td>${esc(row.component)}</td><td>${fmt(row.hi)}</td><td>${fmt(row.hf)}</td><td>${fmt(row.worked_hours)}</td><td>${fmt(row.mp_hours)}</td><td>${fmt(row.mc_hours)}</td><td>${fmt(row.stops, 0)}</td><td>${badge(row.status)}</td></tr>`);
-  setRows('calendar-table', calendarRows, 8, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0"><td>${formatDate(row.date)}</td><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${esc(row.service)}</td><td>${esc(row.type)}</td><td>${fmt(row.meter)} ${esc(row.unit)}</td><td>${fmt(row.target)} ${esc(row.unit)}</td><td>${badge(row.status)}</td></tr>`);
+  setRows('calendar-table', calendarByEquipment, 9, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0" title="Servicios en el periodo: ${esc((row.dates || []).map(formatDate).join(' · '))}"><td>${formatDate(row.date)}</td><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${esc(row.service)}</td><td>${esc(row.type)}</td><td>${fmt(row.meter)} ${esc(row.unit)}</td><td>${fmt(row.target)} ${esc(row.unit)}</td><td>${badge(row.status)}</td><td>${row.services}</td></tr>`);
   setRows('equipment-table', equipmentRows, 4, row => `<tr data-equipment="${esc(row.code)}" tabindex="0"><td><b>${esc(row.code)}</b></td><td>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${badge(row.status)}</td></tr>`);
   $('bitacora-count').textContent = `${bitacoraRows.length} registros`;
-  $('calendar-count').textContent = `${calendarRows.length} servicios`;
+  $('calendar-count').textContent = `${calendarByEquipment.length} equipos · ${calendarRows.length} servicios`;
   $('equipment-count').textContent = `${equipmentRows.length} equipos`;
 
   const updated = data.meta?.updatedAt || '—';
@@ -610,15 +629,15 @@ async function refreshData() {
 
 function csvExport() {
   const views = {
-    inicio: ['KPI', rows('kpi'), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr']],
+    inicio: ['KPI', aggregateByEquipment(rows('kpi')), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr', 'cuts']],
     bitacora: ['Bitacora', rows('bitacora'), ['date', 'equipment', 'description', 'family', 'shift', 'component', 'hi', 'hf', 'worked_hours', 'mp_hours', 'mc_hours', 'standby_hours', 'stops', 'status']],
-    calendario: ['Calendario', rows('calendar'), ['date', 'equipment', 'description', 'family', 'service', 'type', 'meter', 'target', 'unit', 'status']],
+    calendario: ['Calendario', aggregateCalendarByEquipment(rows('calendar')), ['date', 'equipment', 'description', 'family', 'service', 'type', 'meter', 'target', 'unit', 'status', 'services']],
     equipos: ['Equipos', rows('equipment'), ['code', 'description', 'family', 'status']],
-    reportes: ['KPI', rows('kpi'), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr']]
+    reportes: ['KPI', aggregateByEquipment(rows('kpi')), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr', 'cuts']]
   };
   const [name, list, keys] = views[view];
   if (!list.length) return toast('No hay filas para exportar con estos filtros.');
-  const titles = { date: 'Fecha', equipment: 'Equipo', description: 'Descripción', family: 'Familia', availability: 'Disponibilidad %', utilization: 'Utilización %', worked_hours: 'Horas operadas', mp_hours: 'MP h', mc_hours: 'MC h', stops: 'Paros', status: 'Estado', tmef: 'TMEF', tmpr: 'TMPR', shift: 'Turno', component: 'Componente', hi: 'HI', hf: 'HF', standby_hours: 'Stand by h', service: 'Servicio / gama', type: 'Tipo', meter: 'Medidor', target: 'Objetivo', unit: 'Unidad', code: 'Código' };
+  const titles = { date: 'Fecha', equipment: 'Equipo', description: 'Descripción', family: 'Familia', availability: 'Disponibilidad %', utilization: 'Utilización %', worked_hours: 'Horas operadas', mp_hours: 'MP h', mc_hours: 'MC h', stops: 'Paros', status: 'Estado', tmef: 'TMEF', tmpr: 'TMPR', shift: 'Turno', component: 'Componente', hi: 'HI', hf: 'HF', standby_hours: 'Stand by h', service: 'Servicio / gama', type: 'Tipo', meter: 'Medidor', target: 'Objetivo', unit: 'Unidad', code: 'Código', cuts: 'Cortes', services: 'Servicios' };
   const quote = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
   const csv = '\ufeff' + [keys.map(key => titles[key] || key), ...list.map(row => keys.map(key => row[key]))]
     .map(row => row.map(quote).join(',')).join('\r\n');
