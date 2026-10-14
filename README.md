@@ -1,17 +1,16 @@
-# Consultas de mantenimiento Sierra Madre
+# Consulta de mantenimiento Sierra Madre
 
-Portal público de solo lectura para consultar datos exportados de los módulos KPI, bitácora y calendario de servicio. No contiene datos de ejemplo ni consulta directamente el sistema local.
+Portal público de solo lectura para consultar KPI, bitácora, calendario preventivo y equipos desde Mantenimiento.
 
-## Uso
+## Actualización automática
 
-1. En el equipo que tiene Mantenimiento, genera el paquete de consulta: `Mantenimiento.exe --export-portal-json C:\Users\Public\Documents\consulta_mantenimiento.json`. El periodo exportado es el mes actual.
-2. Abre el portal de GitHub Pages y pulsa **Abrir paquete del programa**. El JSON se procesa en el navegador y no se transmite a GitHub.
-3. Filtra por fechas, familia y equipo. **Descargar Excel (CSV)** exporta la tabla del módulo abierto en un formato que Excel puede abrir; **Imprimir / Guardar PDF** abre la impresión del módulo actual.
+1. Instala la versión de Mantenimiento que incluye «URL del portal informativo» y «Clave de publicación del portal» en la PC que contiene la base de datos.
+2. En Herramientas → Configuración de red y actualizaciones, deja la URL del portal informativo y captura la clave privada de publicación entregada al administrador. Pulsa Probar y luego Guardar.
+3. El programa publica un paquete depurado al iniciar y después de cambios registrados, cuando hay internet. La página consulta el último paquete automáticamente.
+4. El paquete incluye datos mensuales KPI y capturas históricas de bitácora, más calendario preventivo. Filtra por fechas y familias, y usa PDF o CSV compatible con Excel para reportar.
 
-El paquete contiene KPI por equipo, capturas resumidas de bitácora y servicios del calendario, así como un catálogo básico. Omite responsables, observaciones libres, evidencia y costos. Para publicar datos disponibles para cualquier visitante, se requeriría subir el JSON como archivo público; este portal no lo hace automáticamente.
+La API conserva una copia vigente y archivos diarios de respaldo en almacenamiento persistente. La clave solo autoriza publicar; las consultas son públicas, como este sitio. El servidor aplica una lista blanca de campos y omite observaciones, responsables, evidencias, costos y credenciales. No cargues ni publiques la base SQLite completa.
 
 ## Desarrollo
 
-El sitio es estático y se publica con GitHub Actions en GitHub Pages. No tiene escritura ni conexión al SQLite, no envía archivos y no almacena las cargas en el servidor. El contrato aceptado es `sierra-madre-consultas/v1` con arreglos `equipment`, `kpi`, `bitacora` y `calendar`.
-
-Si `data/consulta.json` existe, se carga automáticamente para todo visitante. Esa copia queda pública en GitHub Pages; vuelve a generarla y publícala solo cuando el corte de datos deba actualizarse.
+El sitio es estático y se publica mediante GitHub Pages. Los datos se consultan desde la API pública de consulta; los navegadores solo reciben el paquete depurado `sierra-madre-consultas/v1` con arreglos `equipment`, `kpi`, `bitacora` y `calendar`.
