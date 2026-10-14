@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b2340">
+  <meta name="description" content="Portal informativo de consulta de mantenimiento Sierra Madre.">
+  <title>Portal de mantenimiento | Sierra Madre</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#inicio" aria-label="Sierra Madre, inicio">
+      <img class="brand-mark" src="./assets/logo.png" alt=""><span><b>SIERRA MADRE</b><small>MANTENIMIENTO</small></span>
+    </a>
+    <div class="side-caption">CONSULTAS</div>
+    <nav id="navigation" aria-label="Secciones">
+      <button class="nav-item active" data-view="inicio"><span>⌂</span> Resumen</button>
+      <button class="nav-item" data-view="equipos"><span>▣</span> Equipos</button>
+      <button class="nav-item" data-view="disponibilidad"><span>◷</span> Disponibilidad</button>
+      <button class="nav-item" data-view="preventivos"><span>✓</span> Preventivos</button>
+      <button class="nav-item" data-view="diesel"><span>◉</span> Diésel</button>
+      <button class="nav-item" data-view="refacciones"><span>⚙</span> Refacciones</button>
+    </nav>
+    <div class="side-bottom"><span class="status-dot"></span><span><b>Modo de consulta</b><small id="data-status">Sin archivo cargado</small></span></div>
+    <p class="side-foot">Portal informativo<br>La Guitarra</p>
+  </aside>
+
+  <main class="main" id="inicio">
+    <header class="topbar">
+      <div class="crumb">Sierra Madre <span>/</span> <b id="crumb-current">Resumen</b></div>
+      <div class="top-actions"><span class="read-only">SOLO LECTURA</span><button class="button button-quiet" id="load-data">Cargar archivo JSON</button><input id="file-input" type="file" accept=".json,application/json" hidden></div>
+    </header>
+    <section class="welcome">
+      <div><div class="eyebrow">PORTAL DE MANTENIMIENTO</div><h1 id="page-title">Consulta operativa</h1><p id="page-subtitle">Indicadores y registros disponibles para consulta.</p></div>
+      <div class="date-chip"><span>DATOS ACTUALIZADOS</span><b id="updated-at">—</b></div>
+    </section>
+    <section class="notice" id="public-notice"><span class="notice-icon">i</span><div><b>Vista de demostración</b><p>Esta página es pública y muestra únicamente datos ficticios de ejemplo. Los archivos que cargues se procesan en este navegador y no se envían al sitio.</p></div><button class="notice-close" id="dismiss-notice" aria-label="Cerrar aviso">×</button></section>
+    <section class="filters" aria-label="Filtros de consulta">
+      <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Buscar equipo, código o descripción" autocomplete="off"></label>
+      <label class="filter-field"><span>Familia</span><select id="family-filter"><option value="">Todas las familias</option></select></label>
+      <label class="filter-field"><span>Periodo</span><select id="period-filter"><option value="30">Últimos 30 días</option><option value="7">Últimos 7 días</option><option value="90">Últimos 90 días</option><option value="all">Todo el periodo</option></select></label>
+      <button class="button button-outline" id="clear-filters">Limpiar</button>
+    </section>
+    <section id="view-inicio" class="view active-view">
+      <div class="section-heading"><div><div class="eyebrow">VISTA GENERAL</div><h2>Estado de la operación</h2></div><span class="data-tag" id="data-tag">DATOS DE EJEMPLO</span></div>
+      <div class="metrics" id="metrics"></div>
+      <div class="dashboard-grid">
+        <article class="panel"><div class="panel-head"><div><h3>Disponibilidad por familia</h3><p>Promedio de los registros seleccionados</p></div><span class="panel-icon">◒</span></div><div id="family-chart" class="bar-chart"></div></article>
+        <article class="panel panel-insight"><div class="eyebrow">CONSULTA RÁPIDA</div><h3>Información de mantenimiento, en un solo lugar.</h3><p>Filtra por familia o periodo y revisa equipos, indicadores y registros recientes.</p><div class="quick-links"><button data-view="equipos">Consultar equipos <span>→</span></button><button data-view="disponibilidad">Ver disponibilidad <span>→</span></button><button data-view="preventivos">Revisar preventivos <span>→</span></button></div></article>
+      </div>
+      <article class="panel"><div class="panel-head"><div><h3>Actividad reciente</h3><p>Últimos movimientos del periodo consultado</p></div><button class="text-link" data-view="preventivos">Ver registros →</button></div><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Actividad</th><th>Área</th><th>Estado</th></tr></thead><tbody id="recent-table"></tbody></table></div></article>
+    </section>
+    <section id="view-equipos" class="view"><div class="section-heading"><div><div class="eyebrow">CATÁLOGO</div><h2>Equipos</h2><p>Identificación, familia y datos técnicos disponibles.</p></div><span class="count-pill" id="equipment-count">0 equipos</span></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>N.º económico</th><th>Descripción</th><th>Familia</th><th>Estado</th><th>Último medidor</th><th>Potencia</th></tr></thead><tbody id="equipment-table"></tbody></table></div><div class="table-foot" id="equipment-foot"></div></article></section>
+    <section id="view-disponibilidad" class="view"><div class="section-heading"><div><div class="eyebrow">INDICADORES</div><h2>Disponibilidad</h2><p>Disponibilidad, utilización y último horómetro reportado.</p></div></div><div class="metrics compact" id="availability-metrics"></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Disponibilidad</th><th>Utilización</th><th>Último HF</th></tr></thead><tbody id="availability-table"></tbody></table></div></article></section>
+    <section id="view-preventivos" class="view"><div class="section-heading"><div><div class="eyebrow">PLAN Y EJECUCIÓN</div><h2>Servicios preventivos</h2><p>Programa, avance y estado de las actividades.</p></div></div><div class="metrics compact" id="preventive-metrics"></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Servicio</th><th>Tipo</th><th>Responsable</th><th>Estado</th></tr></thead><tbody id="preventive-table"></tbody></table></div></article></section>
+    <section id="view-diesel" class="view"><div class="section-heading"><div><div class="eyebrow">CONSUMOS</div><h2>Diésel</h2><p>Consumo por fecha, turno y equipo.</p></div></div><div class="metrics compact" id="diesel-metrics"></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Turno</th><th>Litros</th></tr></thead><tbody id="diesel-table"></tbody></table></div></article></section>
+    <section id="view-refacciones" class="view"><div class="section-heading"><div><div class="eyebrow">ALMACÉN</div><h2>Refacciones</h2><p>Existencia y niveles por equipo.</p></div></div><div class="metrics compact" id="parts-metrics"></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>N.º parte</th><th>Descripción</th><th>Necesaria</th><th>Existencia</th><th>Mínimo</th><th>Máximo</th><th>Semáforo</th></tr></thead><tbody id="parts-table"></tbody></table></div></article></section>
+    <footer class="footer"><span>SIERRA MADRE · MANTENIMIENTO</span><span>Consulta de solo lectura <i>•</i> <span id="footer-updated">Datos de ejemplo</span></span></footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
