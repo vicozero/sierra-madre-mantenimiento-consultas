@@ -10,18 +10,8 @@
   <link rel="stylesheet" href="./styles.css">
   <script src="./assets/jszip.min.js" defer></script>
   <script src="./assets/report-workbook.js" defer></script>
+  <script src="./assets/jspdf.bundle.js" defer></script>
   <script src="./app.js" defer></script>
-<script src="./assets/jspdf.bundle.js" defer></script>
-<!-- Lucide SVG icon library -->
-<script src="https://unpkg.com/lucide@0.420.0/umd.min.js" defer></script>
-<script>
-  setTimeout(function() {
-    if (window.lucide) {
-      lucide.init({ className: 'icon' });
-    }
-  }, 200);
-</script>
-  
 </head>
 <body>
   <aside class="sidebar">
@@ -31,14 +21,14 @@
     </a>
     <div class="side-caption">CONSULTAS DEL PROGRAMA</div>
     <nav aria-label="Secciones del portal">
-  <button class="nav-item active" data-view="inicio"><span data-lucide="gauge"></span> Resumen KPI</button>
-  <button class="nav-item" data-view="bitacora"><span data-lucide="notebook-text"></button> Bitácora</button>
-  <button class="nav-item" data-view="calendario"><span data-lucide="calendar-days"></button> Calendario de servicio</button>
-  <button class="nav-item" data-view="equipos"><span data-lucide="truck"></button> Equipos</button>
-  <button class="nav-item" data-view="reportes"><span data-lucide="file-chart-column"></button> Reportes</button>
-  <button class="nav-item" data-view="diesel"><span data-lucide="fuel"></button> Diesel</button>
-</nav>
-  <div class="side-status">
+      <button class="nav-item active" data-view="inicio"><span>⌂</span> Resumen KPI</button>
+      <button class="nav-item" data-view="bitacora"><span>▤</span> Bitácora</button>
+      <button class="nav-item" data-view="calendario"><span>▦</span> Calendario de servicio</button>
+      <button class="nav-item" data-view="equipos"><span>▣</span> Equipos</button>
+      <button class="nav-item" data-view="reportes"><span>▧</span> Reportes</button>
+      <button class="nav-item" data-view="diesel"><span>⛽</span> Diesel</button>
+    </nav>
+    <div class="side-status">
       <span class="status-dot"></span>
       <span><b id="connection-label">Conectando</b><small id="data-status">Consultando programa…</small></span>
     </div>
