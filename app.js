@@ -74,6 +74,8 @@ function normalize(payload) {
     if (!Array.isArray(payload[section])) throw new Error(`Sección faltante: ${section}`);
     if (payload[section].some(row => !row || typeof row !== 'object' || Array.isArray(row))) throw new Error(`La sección ${section} contiene registros con formato inválido.`);
   }
+  // La sección de Diesel es opcional: los paquetes anteriores pueden no incluirla.
+  payload.diesel = Array.isArray(payload.diesel) ? payload.diesel.filter(row => row && typeof row === 'object' && !Array.isArray(row)) : [];
   return payload;
 }
 
@@ -1106,6 +1108,7 @@ function render() {
   $('report-pptx-range').textContent = `${periodName ? `Periodo ${periodName}` : 'Periodo seleccionado'}: ${formatRange($('date-start').value, $('date-end').value)} · ${kpiRows.length} cortes KPI · ${equipmentRows.length} equipos`;
   renderReportScope(kpiRows, bitacoraRows, calendarRows, equipmentRows);
   updatePrintHead();
+  renderDiesel();
 }
 
 function fillSelect(id, options, allLabel) {
@@ -1117,7 +1120,8 @@ function fillSelect(id, options, allLabel) {
 }
 
 function fillFilters() {
-  const allRows = [...data.equipment, ...data.kpi, ...data.bitacora, ...data.calendar];
+  const dieselSource = Array.isArray(data.diesel) ? data.diesel : [];
+  const allRows = [...data.equipment, ...data.kpi, ...data.bitacora, ...data.calendar, ...dieselSource];
   const sort = (a, b) => String(a).localeCompare(String(b), 'es');
 
   const families = [...new Set(allRows.map(row => row.family).filter(Boolean))].sort(sort);
@@ -1127,11 +1131,12 @@ function fillFilters() {
     ...data.equipment.map(row => row.code),
     ...data.kpi.map(row => row.equipment),
     ...data.bitacora.map(row => row.equipment),
-    ...data.calendar.map(row => row.equipment)
+    ...data.calendar.map(row => row.equipment),
+    ...dieselSource.map(row => row.equipment || row.code)
   ].filter(Boolean))].sort(sort);
   fillSelect('equipment-filter', codes.map(code => [code, code]), 'Todos los equipos');
 
-  const shifts = [...new Set(data.bitacora.map(row => row.shift).filter(Boolean))].sort(sort);
+  const shifts = [...new Set([...data.bitacora.map(row => row.shift), ...dieselSource.map(row => row.shift)].filter(Boolean))].sort(sort);
   fillSelect('shift-filter', shifts.map(shift => [shift, shift]), 'Todos');
 
   const statusMap = new Map();
@@ -1211,11 +1216,12 @@ function csvExport() {
     bitacora: ['Bitacora', rows('bitacora'), ['date', 'equipment', 'description', 'family', 'shift', 'component', 'hi', 'hf', 'worked_hours', 'mp_hours', 'mc_hours', 'standby_hours', 'stops', 'status']],
     calendario: ['Calendario', calendarRowsForView(), ['date', 'equipment', 'description', 'family', 'service', 'type', 'meter', 'target', 'unit', 'status']],
     equipos: ['Equipos', rows('equipment'), ['code', 'description', 'family', 'status']],
+    diesel: ['Diesel', dieselList(), ['date', 'equipment', 'description', 'family', 'shift', 'liters', 'hours', 'status']],
     reportes: ['KPI', aggregateByEquipment(rows('kpi')), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr', 'cuts']]
   };
   const [name, list, keys] = views[view];
   if (!list.length) return toast('No hay filas para exportar con estos filtros.');
-  const titles = { date: 'Fecha', equipment: 'Equipo', description: 'Descripción', family: 'Familia', availability: 'Disponibilidad %', utilization: 'Utilización %', worked_hours: 'Horas operadas', mp_hours: 'MP h', mc_hours: 'MC h', stops: 'Paros', status: 'Estado', tmef: 'TMEF', tmpr: 'TMPR', shift: 'Turno', component: 'Componente', hi: 'HI', hf: 'HF', standby_hours: 'Stand by h', service: 'Servicio / gama', type: 'Tipo', meter: 'Medidor', target: 'Objetivo', unit: 'Unidad', code: 'Código', cuts: 'Cortes', services: 'Servicios' };
+  const titles = { date: 'Fecha', equipment: 'Equipo', description: 'Descripción', family: 'Familia', availability: 'Disponibilidad %', utilization: 'Utilización %', worked_hours: 'Horas operadas', mp_hours: 'MP h', mc_hours: 'MC h', stops: 'Paros', status: 'Estado', tmef: 'TMEF', tmpr: 'TMPR', shift: 'Turno', component: 'Componente', hi: 'HI', hf: 'HF', standby_hours: 'Stand by h', service: 'Servicio / gama', type: 'Tipo', meter: 'Medidor', target: 'Objetivo', unit: 'Unidad', code: 'Código', cuts: 'Cortes', services: 'Servicios', liters: 'Litros', hours: 'Horas' };
   const quote = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
   const csv = '\ufeff' + [keys.map(key => titles[key] || key), ...list.map(row => keys.map(key => row[key]))]
     .map(row => row.map(quote).join(',')).join('\r\n');
@@ -1411,247 +1417,480 @@ document.addEventListener('keydown', event => {
   }
 });
 
-render();
-refreshData();
+// ============ MÓDULO DE DIESEL ============
 
-// ============ FUNCIONES DIESEL ============
+const DIESEL_PERIODS = { turno: 'Turno', dia: 'Día', semana: 'Semana', mes: 'Mes' };
+let dieselPeriod = 'dia';
+let dieselPdf = null; // exposed for automated preview/verification
 
-function filterValuesDiesel() {
-  const { family, equipment, shift, status, condition, type, query, start, end } = filterValues();
+// Normaliza un registro venga del paquete del programa o de una carga directa de Excel.
+function dieselRecord(row) {
+  const date = String(row.date || row.work_date || row.fecha || '').slice(0, 10);
+  const liters = num(row.liters ?? row.diesel_liters ?? row.consumption ?? row.litros ?? row.litros_diesel);
+  const hours = num(row.worked_hours ?? row.hours ?? row.horas ?? row.worked);
+  const cost = num(row.cost ?? row.costo ?? row.importe ?? row.costo_total);
   return {
-    family: $("family-filter").value,
-    equipment: $("equipment-filter").value,
-    shift: $("shift-filter").value,
-    status: normStatus($("status-filter").value),
-    condition: $("condition-filter").value,
-    type: $("type-filter").value,
-    query: $("search").value.trim().toLocaleLowerCase("es-MX"),
-    start: $("date-start").value,
-    end: $("date-end").value,
-    dieselStart: $("diesel-date-start") ? $("diesel-date-start").value : "",
-    dieselEnd: $("diesel-date-end") ? $("diesel-date-end").value : ""
+    date,
+    equipment: String(row.equipment || row.code || row.equipo || '').trim(),
+    description: String(row.description || row.descripcion || '').trim(),
+    family: String(row.family || row.familia || '').trim(),
+    shift: String(row.shift || row.turno || '').trim(),
+    liters: liters === null ? 0 : liters,
+    hours: hours === null ? 0 : hours,
+    cost,
+    status: String(row.status || row.condition || row.estado || '').trim()
   };
 }
 
-function rowCodeDiesel(row) {
-  return row.equipment || row.code || "";
-}
-
-function normStatusDiesel(value) {
-  return String(value || "").trim().toLocaleLowerCase("es-MX");
+function dieselList() {
+  return (Array.isArray(data.diesel) ? data.diesel : [])
+    .map(dieselRecord)
+    .filter(row => row.date || row.equipment)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || a.equipment.localeCompare(b.equipment, 'es'));
 }
 
 function conditionOfDiesel(row) {
-  const status = normStatusDiesel(row.status);
-  if (/disponible|operativo|complet|termin|realiz|ejecut/.test(status)) return "disponible";
-  if /no disponible|fuera|venc|fall|cr.tic|detenid/.test(status)) return "critico";
-  if /program|pend|proceso|urgente|proxim|riesgo|amarill/.test(status)) return "riesgo";
-  return "sindato";
+  const status = normStatus(row.status);
+  if (/disponible|operativo|complet|termin|realiz|ejecut/.test(status)) return 'disponible';
+  if (/no disponible|fuera|venc|fall|cr.tic|detenid/.test(status)) return 'critico';
+  if (/program|pend|proceso|urgente|proxim|riesgo|amarill/.test(status)) return 'riesgo';
+  return 'sindato';
 }
 
-function dieselRows() {
-  const { dieselStart, dieselEnd, shift, status, condition, type, family, equipment, query } = filterValuesDiesel();
-  return (data.diesel || []).filter(row => {
+function dieselFiltered() {
+  const { family, equipment, shift, status, condition, query, start, end } = filterValues();
+  return dieselList().filter(row => {
     if (family && row.family !== family) return false;
-    if (equipment && rowCodeDiesel(row) !== equipment) return false;
+    if (equipment && row.equipment !== equipment) return false;
     if (shift && row.shift !== shift) return false;
-    if (status && normStatusDiesel(row.status) !== status) return false;
+    if (status && normStatus(row.status) !== normStatus(status)) return false;
     if (condition && conditionOfDiesel(row) !== condition) return false;
-    if (type && String(row.type || "") !== type) return false;
-    if (query && !Object.values(row).join(" ").toLocaleLowerCase("es-MX").includes(query)) return false;
-    if (row.date && start && row.date.slice(0, 10) < start) return false;
-    if (row.date && end && row.date.slice(0, 10) > end) return false;
-    if (dieselStart && row.date.slice(0, 10) < dieselStart) return false;
-    if (dieselEnd && row.date.slice(0, 10) > dieselEnd) return false;
+    if (query && !`${row.equipment} ${row.description} ${row.family} ${row.shift} ${row.status}`.toLocaleLowerCase('es-MX').includes(query)) return false;
+    if (row.date && start && row.date < start) return false;
+    if (row.date && end && row.date > end) return false;
     return true;
   });
 }
 
-function dieselIndicators(dieselRows) {
-  const groups = new Map();
-  for (const row of dieselRows) {
-    const family = row.family || "Sin familia";
-    if (!groups.has(family)) groups.set(family, []);
-    groups.get(family).push(row);
+function dieselPeriodKey(row, mode) {
+  if (mode === 'turno') return `${row.date || 'Sin fecha'}|${row.shift || 'Sin turno'}`;
+  if (mode === 'semana') {
+    const base = dateAtNoon(row.date);
+    if (!base) return 'Sin fecha';
+    const first = new Date(base);
+    first.setDate(base.getDate() - ((base.getDay() + 6) % 7));
+    return isoDate(first);
   }
-  return [...groups].map(([family, items]) => ({
-    family,
-    equipment: distinctCountDiesel(items, "equipment"),
-    consumption: sumFieldDiesel(items, "consumption"),
-    cost: sumFieldDiesel(items, "cost"),
-    rows: items.length
-  })).sort((a, b) => b.consumption - a.consumption);
+  if (mode === 'mes') return row.date ? row.date.slice(0, 7) : 'Sin fecha';
+  return row.date || 'Sin fecha';
 }
 
-function distinctCountDiesel(list, key) {
-  return new Set(list.map(row => row[key]).filter(Boolean)).size;
+function dieselPeriodLabel(key, mode) {
+  if (!key || key === 'Sin fecha') return 'Sin fecha';
+  if (mode === 'mes') {
+    const [year, month] = key.split('-');
+    return new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' }).format(new Date(Number(year), Number(month) - 1, 1));
+  }
+  if (mode === 'semana') return `Semana del ${formatDayLong(key)}`;
+  if (mode === 'turno') {
+    const [date, shift] = key.split('|');
+    return `${formatDate(date)} · ${shift}`;
+  }
+  return formatDayLong(key);
 }
 
-function sumFieldDiesel(list, key) {
-  return list.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
+function dieselShortLabel(key, mode) {
+  if (!key || key === 'Sin fecha') return 'S/F';
+  if (mode === 'mes') {
+    const [year, month] = key.split('-');
+    return new Intl.DateTimeFormat('es-MX', { month: 'short' }).format(new Date(Number(year), Number(month) - 1, 1)).replace('.', '');
+  }
+  if (mode === 'turno') {
+    const [date, shift] = key.split('|');
+    const shortDate = date.slice(8, 10) + '/' + date.slice(5, 7);
+    const shortShift = (String(shift).match(/\d+/) || [''])[0];
+    return shortShift ? `${shortDate}·T${shortShift}` : shortDate;
+  }
+  return key.slice(8, 10) + '/' + key.slice(5, 7);
+}
+
+function dieselBuckets(rows, mode) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = dieselPeriodKey(row, mode);
+    if (!groups.has(key)) groups.set(key, { key, liters: 0, hours: 0, cost: 0, records: 0, equipment: new Set(), shifts: new Set() });
+    const bucket = groups.get(key);
+    bucket.liters += row.liters;
+    bucket.hours += row.hours;
+    bucket.records += 1;
+    if (row.cost !== null) bucket.cost += row.cost;
+    if (row.equipment) bucket.equipment.add(row.equipment);
+    if (row.shift) bucket.shifts.add(row.shift);
+  }
+  return [...groups.values()].map(bucket => ({
+    key: bucket.key,
+    label: dieselPeriodLabel(bucket.key, mode),
+    liters: bucket.liters,
+    hours: bucket.hours,
+    cost: bucket.cost,
+    records: bucket.records,
+    equipmentCount: bucket.equipment.size,
+    yield: bucket.hours > 0 ? bucket.liters / bucket.hours : null
+  })).sort((a, b) => String(b.key).localeCompare(String(a.key)));
+}
+
+function dieselByEquipment(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const code = row.equipment || 'Sin equipo';
+    if (!groups.has(code)) groups.set(code, { equipment: code, description: row.description, family: row.family, liters: 0, hours: 0, records: 0 });
+    const bucket = groups.get(code);
+    bucket.liters += row.liters;
+    bucket.hours += row.hours;
+    bucket.records += 1;
+    if (!bucket.description && row.description) bucket.description = row.description;
+    if (!bucket.family && row.family) bucket.family = row.family;
+  }
+  return [...groups.values()]
+    .map(bucket => ({ ...bucket, yield: bucket.hours > 0 ? bucket.liters / bucket.hours : null }))
+    .sort((a, b) => b.liters - a.liters);
+}
+
+function dieselTotals(rows) {
+  const liters = rows.reduce((sum, row) => sum + row.liters, 0);
+  const hours = rows.reduce((sum, row) => sum + row.hours, 0);
+  return {
+    liters,
+    hours,
+    cost: rows.reduce((sum, row) => sum + (row.cost || 0), 0),
+    hasCost: rows.some(row => row.cost !== null),
+    yield: hours > 0 ? liters / hours : null,
+    equipment: new Set(rows.map(row => row.equipment).filter(Boolean)).size,
+    records: rows.length
+  };
+}
+
+// Compatibilidad con la exportación CSV genérica (botón global).
+function dieselRows() {
+  return dieselList();
+}
+
+function dieselPdfFit(pdf, text, maxWidth) {
+  let value = String(text ?? '');
+  if (pdf.getTextWidth(value) <= maxWidth) return value;
+  while (value.length > 1 && pdf.getTextWidth(value + '…') > maxWidth) value = value.slice(0, -1);
+  return value + '…';
+}
+
+function dieselPdfHeader(pdf) {
+  pdf.setFillColor('#092744');
+  pdf.rect(0, 0, 210, 20, 'F');
+  pdf.setFillColor('#1476df');
+  pdf.rect(0, 20, 210, 1.2, 'F');
+  pdf.setTextColor('#ffffff');
+  pdf.setFont('Helvetica', 'bold');
+  pdf.setFontSize(14);
+  pdf.text('SIERRA MADRE · MANTENIMIENTO', 10, 9);
+  pdf.setFont('Helvetica', 'normal');
+  pdf.setFontSize(7.5);
+  pdf.setTextColor('#9fc4ea');
+  pdf.text('Reporte de consumo de Diesel', 10, 15);
+  pdf.text(`Generado ${new Date().toLocaleString('es-MX')}`, 200, 9, { align: 'right' });
+  pdf.text(REPORT_UNIT, 200, 15, { align: 'right' });
+}
+
+function dieselPdfFooter(pdf) {
+  const total = pdf.getNumberOfPages();
+  for (let page = 1; page <= total; page++) {
+    pdf.setPage(page);
+    pdf.setDrawColor('#e2ebf5');
+    pdf.setLineWidth(0.3);
+    pdf.line(10, 285, 200, 285);
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setFontSize(7);
+    pdf.setTextColor('#6d829b');
+    pdf.text('SIERRA MADRE · MANTENIMIENTO · REPORTE DE DIESEL', 10, 289);
+    pdf.text(`Página ${page} de ${total}`, 200, 289, { align: 'right' });
+  }
+}
+
+function dieselPdfTable(pdf, startY, left, columns, rows) {
+  const rowHeight = 6.4;
+  const totalWidth = columns.reduce((sum, column) => sum + column.width, 0);
+  let y = startY;
+  const drawHeader = () => {
+    pdf.setFillColor('#0f1e36');
+    pdf.rect(left, y, totalWidth, rowHeight, 'F');
+    pdf.setTextColor('#ffffff');
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setFontSize(7);
+    let x = left;
+    columns.forEach(column => {
+      const textX = column.align === 'right' ? x + column.width - 1.5 : column.align === 'center' ? x + column.width / 2 : x + 1.5;
+      pdf.text(dieselPdfFit(pdf, column.title, column.width - 3), textX, y + 4.2, { align: column.align || 'left' });
+      x += column.width;
+    });
+    y += rowHeight;
+  };
+  drawHeader();
+  rows.forEach((row, rowIndex) => {
+    if (y + rowHeight > 276) {
+      pdf.addPage();
+      dieselPdfHeader(pdf);
+      y = 28;
+      drawHeader();
+    }
+    if (rowIndex % 2 === 0) {
+      pdf.setFillColor('#f5f9ff');
+      pdf.rect(left, y, totalWidth, rowHeight, 'F');
+    }
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setFontSize(7);
+    pdf.setTextColor('#17395d');
+    let x = left;
+    columns.forEach((column, columnIndex) => {
+      const value = dieselPdfFit(pdf, row[columnIndex] ?? '', column.width - 3);
+      const textX = column.align === 'right' ? x + column.width - 1.5 : column.align === 'center' ? x + column.width / 2 : x + 1.5;
+      pdf.text(value, textX, y + 4.2, { align: column.align || 'left' });
+      x += column.width;
+    });
+    y += rowHeight;
+  });
+  return y;
 }
 
 function generateDieselPDF() {
-  if (typeof jsPDF === "undefined") {
-    toast("No se pudo cargar jsPDF. Recarga la página e intente de nuevo.");
+  const JsPDF = typeof jsPDF !== 'undefined' ? jsPDF : (window.jspdf && window.jspdf.jsPDF);
+  if (!JsPDF) {
+    toast('No se pudo cargar el generador de PDF. Recarga la página e inténtalo de nuevo.');
     return;
   }
-  const start = $("diesel-date-start") ? $("diesel-date-start").value : "";
-  const end = $("diesel-date-end") ? $("diesel-date-end").value : "";
-  if (!start || !end) {
-    toast("Selecciona un periodo primero.");
+  const rows = dieselFiltered();
+  if (!rows.length) {
+    toast('No hay registros de Diesel para generar el reporte con estos filtros.');
     return;
   }
+  const mode = dieselPeriod;
+  const buckets = dieselBuckets(rows, mode);
+  const totals = dieselTotals(rows);
+  const byEquipment = dieselByEquipment(rows);
+  const start = $('date-start').value || data.meta?.periodStart || '';
+  const end = $('date-end').value || data.meta?.periodEnd || '';
 
-  const dieselRows = dieselRows();
-  const indicators = dieselIndicators(dieselRows);
+  const pdf = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  dieselPdf = pdf;
+  dieselPdfHeader(pdf);
 
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [210, 297] });
-  const NAVY = "092744", BLUE = "1476df", CYAN = "16b5e5", INK = "17395d", MUTED = "6d829b";
-  const WHITE = "FFFFFF", ORANGE = "F59E0B", GREEN = "12A66A", RED = "EF4444";
+  // Encabezado del reporte
+  pdf.setFont('Helvetica', 'bold');
+  pdf.setFontSize(16);
+  pdf.setTextColor('#0f3c70');
+  pdf.text('Consumo de Diesel', 10, 32);
+  pdf.setFont('Helvetica', 'normal');
+  pdf.setFontSize(9);
+  pdf.setTextColor('#556d87');
+  pdf.text(`Agrupación: ${DIESEL_PERIODS[mode]}`, 10, 38);
+  pdf.text(`Periodo: ${formatRange(start, end)}`, 10, 43);
+  pdf.text(`Total de registros: ${totals.records} · Equipos: ${totals.equipment}`, 10, 48);
 
-  // Header
-  pdf.setFillColor(NAVY);
-  pdf.rect(0, 0, 210, 12, "F");
-  pdf.setFontSize(14);
-  pdf.setTextColor(WHITE);
-  pdf.setFont("Helvetica", "bold");
-  pdf.text("SIERRA MADRE · Mantenimiento", 10, 7);
-  pdf.setFontSize(8);
-  pdf.text("Consumo de Diesel · " + new Date().toLocaleDateString("es-MX"), 10, 10);
-
-  // KPI Cards
-  const cardH = 12;
-  const cardW = 45;
-  const gap = 5;
+  // Tarjetas KPI
   const cards = [
-    { label: "Consumo Total", value: fmt(Number(indicators.reduce((s,i)=>s+i.consumption,0))), color: GREEN },
-    { label: "Costo Total", value: fmt(Number(indicators.reduce((s,i)=>s+i.cost,0))), color: ORANGE },
-    { label: "Total Registros", value: String(indicators.reduce((s,i)=>s+i.rows,0)), color: BLUE }
+    { label: 'Litros consumidos', value: `${fmt(totals.liters)} L`, color: '#f59b18' },
+    { label: 'Horas trabajadas', value: `${fmt(totals.hours)} h`, color: '#1476df' },
+    { label: 'Rendimiento', value: totals.yield === null ? '—' : `${fmt(totals.yield)} L/h`, color: '#12a66a' },
+    { label: 'Equipos', value: `${totals.equipment}`, color: '#8052e8' },
+    { label: 'Registros', value: `${totals.records}`, color: '#0ba6a7' }
   ];
-
-  for (let i = 0; i < cards.length; i++) {
-    const card = cards[i];
-    const xi = 10 + i * (cardW + gap);
-    pdf.setFillColor("#F5F9FF");
-    pdf.setDrawColor("#DCE7F3");
-    pdf.setLineWidth(0.5);
-    pdf.rect(xi, 20, cardW, cardH, "DF");
+  const cardW = 36, cardGap = 3.5, cardY = 54, cardH = 20;
+  cards.forEach((card, index) => {
+    const x = 10 + index * (cardW + cardGap);
+    pdf.setFillColor('#f5f9ff');
+    pdf.setDrawColor('#dce7f3');
+    pdf.setLineWidth(0.4);
+    pdf.roundedRect(x, cardY, cardW, cardH, 2, 2, 'DF');
+    pdf.setFillColor(card.color);
+    pdf.roundedRect(x, cardY, cardW, 2.2, 1, 1, 'F');
+    pdf.setFont('Helvetica', 'bold');
     pdf.setFontSize(11);
     pdf.setTextColor(card.color);
-    pdf.setFont("Helvetica", "bold");
-    pdf.text(String(card.value), xi + 2, 26, { maxWidth: cardW - 4, align: "center" });
-    pdf.setFontSize(8);
-    pdf.setTextColor("#6D829B");
-    pdf.setFont("Helvetica", "");
-    pdf.text(card.label, xi + 2, 35, { maxWidth: cardW - 4, align: "center" });
-  }
-
-  // Table
-  const colW = [25, 35, 30, 25, 25, 30, 30];
-  const headers = ["Fecha", "Equipo", "Familia", "Turno", "Consumo (h)", "Costo", "Estado"];
-  const headerH = 8;
-  const rowH = 7;
-  const marginL = 10;
-  const marginT = 35;
-
-  // Header
-  pdf.setFillColor("#0F1E36");
-  pdf.setTextColor(WHITE);
-  pdf.setFontSize(7);
-  pdf.setFont("Helvetica", "bold");
-  let cx = marginL;
-  for (let i = 0; i < headers.length; i++) {
-    pdf.text(headers[i], cx, marginT, { maxWidth: colW[i], align: "center" });
-    cx += colW[i];
-  }
-
-  // Data sorted by date desc
-  const sortedRows = [...dieselRows].sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  const periodRows = sortedRows.filter(row => {
-    const evt = new Date(row.date + "T12:00:00");
-    return new Date(start + "T12:00:00") <= evt && evt <= new Date(end + "T12:00:00");
+    pdf.text(String(card.value), x + cardW / 2, cardY + 11.5, { align: 'center' });
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setFontSize(7);
+    pdf.setTextColor('#556d87');
+    pdf.text(card.label, x + cardW / 2, cardY + 16.6, { align: 'center' });
   });
 
-  pdf.setFontSize(6.5);
-  pdf.setFont("Helvetica", "");
-  pdf.setTextColor("#1F2937");
-  let rowY = marginT + headerH;
-  for (let i = 0; i < periodRows.length; i++) {
-    if (rowY > 270) {
-      pdf.addPage();
-      pdf.setFillColor("#0F1E36");
-      pdf.setTextColor(WHITE);
-      pdf.setFontSize(7);
-      pdf.setFont("Helvetica", "bold");
-      cx = marginL;
-      for (let h = 0; h < headers.length; h++) {
-        pdf.text(headers[h], cx, marginT, { maxWidth: colW[h], align: "center" });
-        cx += colW[h];
-      }
-      rowY = marginT + headerH;
-    }
+  // Gráfica de barras por periodo
+  const chartTop = 84, chartHeight = 34, chartLeft = 12, chartWidth = 186;
+  pdf.setFont('Helvetica', 'bold');
+  pdf.setFontSize(10);
+  pdf.setTextColor('#0f3c70');
+  pdf.text(`Consumo por ${DIESEL_PERIODS[mode].toLowerCase()} (litros)`, 10, 80);
+  pdf.setDrawColor('#e2ebf5');
+  pdf.setLineWidth(0.3);
+  pdf.line(10, cardY + cardH + 10, 200, cardY + cardH + 10);
+  pdf.line(10, cardY + cardH + 40, 200, cardY + cardH + 40);
+  const chartBottom = cardY + cardH + 40;
+  const chartTopY = cardY + cardH + 10;
+  const chartData = buckets.slice(0, 12).reverse();
+  const maxLiters = Math.max(...chartData.map(bucket => bucket.liters), 1);
+  const slot = 186 / Math.max(chartData.length, 1);
+  const barWidth = Math.min(slot * 0.55, 11);
+  chartData.forEach((bucket, index) => {
+    const usable = chartBottom - chartTopY - 6;
+    const barHeight = Math.max((bucket.liters / maxLiters) * usable, 0.8);
+    const x = 12 + index * slot + (slot - barWidth) / 2;
+    const y = chartBottom - barHeight;
+    pdf.setFillColor('#1476df');
+    pdf.roundedRect(x, y, barWidth, barHeight, 1, 1, 'F');
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setFontSize(5.5);
+    pdf.setTextColor('#0f3c70');
+    pdf.text(fmt(bucket.liters), x + barWidth / 2, y - 1.2, { align: 'center' });
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setTextColor('#6d829b');
+    pdf.text(dieselShortLabel(bucket.key, mode), x + barWidth / 2, chartBottom + 3.4, { align: 'center' });
+  });
 
-    const row = periodRows[i];
-    const cx = marginL;
-    const dateText = row.date.slice(8, 10) + "/" + row.date.slice(5, 7) + "/" + row.date.slice(0, 4);
-    const cells = [
-      dateText,
-      row.equipment || "-",
-      row.family || "-",
-      row.shift || "-",
-      Number(row.consumption || 0).toFixed(2),
-      Number(row.cost || 0).toFixed(2),
-      row.status || "-"
-    ];
+  // Tabla resumen por periodo
+  let cursorY = 108;
+  pdf.setFont('Helvetica', 'bold');
+  pdf.setFontSize(10);
+  pdf.setTextColor('#0f3c70');
+  pdf.text(`Resumen por ${DIESEL_PERIODS[mode].toLowerCase()}`, 10, cursorY - 3);
+  cursorY = dieselPdfTable(pdf, cursorY, 10, [
+    { title: 'Periodo', width: 60 },
+    { title: 'Equipos', width: 18, align: 'center' },
+    { title: 'Registros', width: 20, align: 'center' },
+    { title: 'Litros', width: 26, align: 'right' },
+    { title: 'Horas', width: 24, align: 'right' },
+    { title: 'L/h', width: 28, align: 'right' }
+  ], buckets.map(bucket => [
+    bucket.label,
+    String(bucket.equipmentCount),
+    String(bucket.records),
+    fmt(bucket.liters),
+    fmt(bucket.hours),
+    bucket.yield === null ? '—' : fmt(bucket.yield)
+  ]));
 
-    for (let ci = 0; ci < cells.length; ci++) {
-      pdf.setFontSize(6);
-      pdf.setTextColor("#1F2937");
-      pdf.setFont("Helvetica", "");
-      pdf.text(String(cells[ci]), cx, rowY, { maxWidth: colW[ci] });
-      cx += colW[ci];
-    }
-    rowY += rowH;
+  // Tabla por equipo
+  cursorY += 9;
+  if (cursorY > 250) {
+    pdf.addPage();
+    dieselPdfHeader(pdf);
+    cursorY = 30;
   }
+  pdf.setFont('Helvetica', 'bold');
+  pdf.setFontSize(10);
+  pdf.setTextColor('#0f3c70');
+  pdf.text('Consumo por equipo', 10, cursorY - 3);
+  dieselPdfTable(pdf, cursorY, 10, [
+    { title: 'Equipo', width: 32 },
+    { title: 'Descripción', width: 54 },
+    { title: 'Familia', width: 32 },
+    { title: 'Litros', width: 24, align: 'right' },
+    { title: 'Horas', width: 22, align: 'right' },
+    { title: 'L/h', width: 26, align: 'right' }
+  ], byEquipment.map(item => [
+    item.equipment,
+    item.description || '—',
+    item.family || '—',
+    fmt(item.liters),
+    fmt(item.hours),
+    item.yield === null ? '—' : fmt(item.yield)
+  ]));
 
-  // Footer
-  pdf.setFontSize(7);
-  pdf.setTextColor("#64748b");
-  pdf.text("SIERRA MADRE · Mantenimiento | Diesel Report", marginL, 285);
-  pdf.text("Página " + pdf.pageNo, 200, 285, { align: "right" });
-
-  const filename = "Diesel_Report_" + start + "_" + end + ".pdf";
+  dieselPdfFooter(pdf);
+  const filename = `SierraMadre_Diesel_${mode}_${start || 'periodo'}.pdf`;
   pdf.save(filename);
-  toast("PDF generado: " + filename);
+  toast(`PDF generado: ${filename}`);
 }
 
-// Diesel event listeners
-$("export-diesel-pdf").addEventListener("click", generateDieselPDF);
-$("export-diesel-csv").addEventListener("click", () => {
-  const dieselRows = dieselRows();
-  if (!dieselRows.length) return toast("No hay filas para exportar con estos filtros.");
-  const rowsCSV = dieselRows.map(row => [
+function renderDiesel() {
+  const rows = dieselFiltered();
+  const mode = dieselPeriod;
+  const buckets = dieselBuckets(rows, mode);
+  const totals = dieselTotals(rows);
+
+  const countEl = $('diesel-count');
+  if (countEl) countEl.textContent = `${rows.length} registros`;
+
+  const kpis = $('diesel-kpis');
+  if (kpis) {
+    kpis.innerHTML = [
+      metric('Litros consumidos', `${fmt(totals.liters)} L`, 'Consumo total del periodo', '#f59b18', '⛽'),
+      metric('Horas trabajadas', `${fmt(totals.hours)} h`, 'Horas asociadas a los registros', '#1476df', '⏱'),
+      metric('Rendimiento', totals.yield === null ? '—' : `${fmt(totals.yield)} L/h`, 'Litros consumidos por hora', '#12a66a', '◑'),
+      metric('Equipos con consumo', `${totals.equipment}`, 'Unidades con registro en el periodo', '#8052e8', '◉'),
+      metric('Registros de combustible', `${totals.records}`, `${buckets.length} ${DIESEL_PERIODS[mode].toLowerCase()}(s) con datos`, '#0ba6a7', '▤')
+    ].join('');
+  }
+
+  const chart = $('diesel-chart');
+  if (chart) {
+    if (!buckets.length) {
+      chart.innerHTML = '<p class="diesel-empty">Sin registros de Diesel para los filtros seleccionados.</p>';
+    } else {
+      const data = buckets.slice(0, 12).reverse();
+      const maxLiters = Math.max(...data.map(bucket => bucket.liters), 1);
+      chart.innerHTML = `<div class="diesel-bars">${data.map(bucket => `
+        <div class="diesel-bar" title="${esc(bucket.label)}: ${fmt(bucket.liters)} L">
+          <b>${fmt(bucket.liters)}</b>
+          <span class="diesel-bar-track"><i style="height:${Math.max(4, (bucket.liters / maxLiters) * 100)}%"></i></span>
+          <small>${esc(dieselShortLabel(bucket.key, mode))}</small>
+        </div>`).join('')}</div>`;
+    }
+  }
+
+  const tbody = $('diesel-table');
+  if (tbody) {
+    tbody.innerHTML = buckets.length
+      ? buckets.map(bucket => `<tr><td><b>${esc(bucket.label)}</b></td><td>${bucket.equipmentCount}</td><td>${fmt(bucket.liters)}</td><td>${fmt(bucket.hours)}</td><td>${bucket.yield === null ? '—' : fmt(bucket.yield)}</td><td>${bucket.records}</td></tr>`).join('')
+      : '<tr><td class="empty" colspan="6">Sin registros para estos filtros.</td></tr>';
+  }
+
+  const scope = $('diesel-scope');
+  if (scope) {
+    const start = $('date-start').value || data.meta?.periodStart || '';
+    const end = $('date-end').value || data.meta?.periodEnd || '';
+    scope.textContent = `Agrupado por ${DIESEL_PERIODS[mode].toLowerCase()} · ${formatRange(start, end)} · ${rows.length} registros en ${buckets.length} periodo(s).`;
+  }
+
+  const range = $('diesel-pdf-range');
+  if (range) range.textContent = `${DIESEL_PERIODS[mode]} · ${buckets.length} periodo(s) · ${fmt(totals.liters)} L`;
+
+  document.querySelectorAll('#period-toggle-diesel [data-period]').forEach(button => button.classList.toggle('active', button.dataset.period === mode));
+}
+
+function generateDieselCSV() {
+  const rows = dieselFiltered();
+  if (!rows.length) return toast('No hay registros de Diesel para exportar con estos filtros.');
+  const titles = ['Fecha', 'Equipo', 'Descripción', 'Familia', 'Turno', 'Litros', 'Horas', 'Rendimiento (L/h)', 'Costo', 'Estado'];
+  const quote = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
+  const lines = [titles, ...rows.map(row => [
     row.date,
-    row.equipment || "-",
-    row.family || "-",
-    row.shift || "-",
-    Number(row.consumption).toFixed(2),
-    Number(row.cost).toFixed(2),
-    row.status || "-"
-  ]).map(row => cell => `"${String(cell).replaceAll('"', '""')}"`).join(",");
-  const blob = new Blob(["\ufeffFecha,Equipo,Familia,Turno,Consumo (h),Costo,Estado\r\n" + dieselRows.map(row => 
-    dieselRows.map(r => 
-      `"${String(r.date).replaceAll('"', '""')},${String(r.equipment || '-').replaceAll('"', '""')},${String(r.family || '-').replaceAll('"', '""')},${String(r.shift || '-').replaceAll('"', '""')},${Number(r.consumption).toFixed(2)},${Number(r.cost).toFixed(2)},${String(r.status || '-').replaceAll('"', '""')}`
-    ).join("\r\n")
-  ]), {type: "text/csv;charset=utf-8"});
-  const anchor = document.createElement("a");
-  anchor.href = URL.createObjectURL(blob);
-  anchor.download = "SierraMadre_ReporteDiesel_" + start + ".csv";
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
-  toast("CSV exportado: SierraMadre_ReporteDiesel_" + start + ".csv");
-});
+    row.equipment,
+    row.description,
+    row.family,
+    row.shift,
+    row.liters.toFixed(2),
+    row.hours.toFixed(2),
+    row.hours > 0 ? (row.liters / row.hours).toFixed(2) : '',
+    row.cost === null ? '' : row.cost.toFixed(2),
+    row.status
+  ])];
+  const csv = '\ufeff' + lines.map(line => line.map(quote).join(',')).join('\r\n');
+  download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `SierraMadre_Diesel_${$('date-start').value || 'periodo'}.csv`);
+  toast('CSV de Diesel exportado.');
+}
+
+document.querySelectorAll('#period-toggle-diesel [data-period]').forEach(button => button.addEventListener('click', () => {
+  dieselPeriod = button.dataset.period;
+  renderDiesel();
+}));
+$('export-diesel-pdf').addEventListener('click', generateDieselPDF);
+$('export-diesel-csv').addEventListener('click', generateDieselCSV);
 
 render();
 refreshData();

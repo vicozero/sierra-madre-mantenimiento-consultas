@@ -220,6 +220,22 @@ td b { color: #183b5d; }
 .toast { position: fixed; right: 20px; bottom: 20px; z-index: 20; padding: 11px 15px; border-radius: 8px; color: white; background: #102f50; box-shadow: 0 5px 18px #071c3555; opacity: 0; pointer-events: none; transition: opacity .2s; font-size: 11px; }
 .toast.show { opacity: 1; }
 
+.diesel-feature { margin-bottom: 10px; }
+.diesel-feature-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.diesel-feature-info { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.diesel-feature-info h3 { margin: 0; }
+.diesel-feature-info p { margin: 4px 0 0; color: var(--muted); font-size: 9px; }
+.diesel-feature-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.diesel-feature-foot #diesel-pdf-range { color: var(--muted); font-size: 10px; }
+.diesel-chart { margin: 14px 0 2px; }
+.diesel-bars { display: flex; align-items: flex-end; gap: 6px; height: 185px; padding: 12px 4px 0; border-bottom: 1px solid #e2ebf5; overflow-x: auto; }
+.diesel-bar { display: flex; min-width: 36px; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; }
+.diesel-bar b { color: #0f3c70; font-size: 8px; }
+.diesel-bar-track { display: flex; width: 100%; max-width: 26px; min-height: 10px; flex: 1 1 auto; align-items: flex-end; }
+.diesel-bar-track i { display: block; width: 100%; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #16b5e5, #1476df); }
+.diesel-bar small { color: #8293a7; font-size: 7px; white-space: nowrap; }
+.diesel-empty { padding: 28px 0; color: var(--muted); font-size: 11px; text-align: center; }
+
 .print-head { display: none; }
 .print-logo { width: 52px; height: 44px; object-fit: contain; }
 .print-brand b, .print-brand span { display: block; }
