@@ -330,6 +330,115 @@ function aggregateCalendarByEquipment(list) {
 
 /* ---------- Reporte en PowerPoint (mensual / semanal / diario) ---------- */
 
+const PPTX_NS = {
+  a: 'http://schemas.openxmlformats.org/drawingml/2006/main',
+  p: 'http://schemas.openxmlformats.org/presentationml/2006/main'
+};
+
+function parsePptxSlide(xml) {
+  const document = new DOMParser().parseFromString(xml, 'application/xml');
+  if (document.getElementsByTagName('parsererror').length) throw new Error('La plantilla de PowerPoint está dañada.');
+  return document;
+}
+
+function pptxNodes(node, namespace, name) {
+  return [...node.getElementsByTagNameNS(namespace, name)];
+}
+
+function setPptxTextNodes(nodes, value) {
+  if (!nodes.length) return;
+  nodes[0].textContent = String(value ?? '');
+  nodes.slice(1).forEach(node => { node.textContent = ''; });
+}
+
+function replacePptxMarker(document, marker, value) {
+  let changed = false;
+  for (const shape of pptxNodes(document, PPTX_NS.p, 'sp')) {
+    const texts = pptxNodes(shape, PPTX_NS.a, 't');
+    if (texts.map(node => node.textContent).join('').includes(marker)) {
+      setPptxTextNodes(texts, pptxNodes(shape, PPTX_NS.a, 't').map(node => node.textContent).join('').replace(marker, String(value ?? '—')));
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function pptxTableRows(document) {
+  const table = pptxNodes(document, PPTX_NS.a, 'tbl')[0];
+  return table ? pptxNodes(table, PPTX_NS.a, 'tr') : [];
+}
+
+function pptxRowCells(row) {
+  return [...row.children].filter(node => node.namespaceURI === PPTX_NS.a && node.localName === 'tc');
+}
+
+function pptxCellText(cell) {
+  return pptxNodes(cell, PPTX_NS.a, 't').map(node => node.textContent).join('');
+}
+
+function setPptxCell(cell, value) {
+  setPptxTextNodes(pptxNodes(cell, PPTX_NS.a, 't'), value);
+}
+
+function expandPptxDataTable(document, requiredRows) {
+  const table = pptxNodes(document, PPTX_NS.a, 'tbl')[0];
+  const rows = pptxTableRows(document);
+  let capacity = rows.slice(1).filter(row => pptxCellText(pptxRowCells(row)[0] || row).includes('__DATA_ROW__')).length;
+  while (capacity < requiredRows) {
+    const templateRow = [...rows].reverse().find(row => pptxCellText(pptxRowCells(row)[0] || row).includes('__DATA_ROW__'));
+    if (!templateRow) break;
+    const row = templateRow.cloneNode(true);
+    const cells = pptxRowCells(row);
+    cells.forEach((cell, index) => setPptxCell(cell, index === 0 ? '__DATA_ROW__' : ''));
+    table.appendChild(row);
+    const height = Number(row.getAttribute('h')) || 0;
+    const transform = document.getElementsByTagNameNS(PPTX_NS.p, 'graphicFrame')[0]?.getElementsByTagNameNS(PPTX_NS.a, 'xfrm')[0];
+    const extent = transform?.getElementsByTagNameNS(PPTX_NS.a, 'ext')[0];
+    if (extent && height) extent.setAttribute('cy', String(Number(extent.getAttribute('cy')) + height));
+    rows.push(row);
+    capacity++;
+  }
+  return capacity;
+}
+
+function fillPptxDataTable(document, items, toCells) {
+  let index = 0;
+  for (const row of pptxTableRows(document).slice(1)) {
+    const cells = pptxRowCells(row);
+    if (pptxCellText(cells[0] || row).includes('__DATA_ROW__')) {
+      const item = items[index++];
+      cells.forEach((cell, column) => setPptxCell(cell, item ? toCells(item)[column] ?? '' : ''));
+    }
+  }
+  if (index < items.length) throw new Error(`La plantilla admite ${index} renglones de esta familia y hay ${items.length}; se requiere ampliar el diseño para evitar omitir equipos.`);
+}
+
+function fillPptxConditionTables(documents, groups) {
+  let groupIndex = 0;
+  let equipmentIndex = 0;
+  let activeGroup = null;
+  for (const document of documents) {
+    for (const row of pptxTableRows(document).slice(1)) {
+      const cells = pptxRowCells(row);
+      const marker = pptxCellText(cells[0] || row);
+      if (marker.includes('__FAMILY_ROW__')) {
+        if (!activeGroup || equipmentIndex >= activeGroup.items.length) {
+          activeGroup = groups[groupIndex++] || null;
+          equipmentIndex = 0;
+        }
+        cells.forEach((cell, column) => setPptxCell(cell, activeGroup && column === 0 ? activeGroup.family : ''));
+      } else if (marker.includes('__EQUIP_ROW__')) {
+        const item = activeGroup?.items[equipmentIndex++];
+        cells.forEach((cell, column) => setPptxCell(cell, item ? [item.description || item.code, item.code || '—', item.status || '—', ''][column] ?? '' : ''));
+      }
+    }
+  }
+  if (groupIndex < groups.length || groups.slice(0, groupIndex).some(group => group.items.length > 0 && group === activeGroup && equipmentIndex < group.items.length)) {
+    const remaining = groups.slice(groupIndex).reduce((sum, group) => sum + group.items.length, 0);
+    if (remaining) throw new Error('La plantilla no tiene renglones suficientes para mostrar todos los equipos; no se generó un reporte incompleto.');
+  }
+}
+
 function pad2(value) {
   return String(value).padStart(2, '0');
 }
@@ -499,37 +608,9 @@ function reportEquipmentRows(kpiRows, bitacoraRows) {
 const pctText = value => value === null || value === undefined ? '—' : `${fmt(value)}%`;
 const hrsText = value => value === null || value === undefined ? '—' : `${fmt(value)} h`;
 
-function pptxHeader(text) {
-  return { text: String(text), options: { bold: true, color: 'FFFFFF', fill: '092744', align: 'center', valign: 'middle' } };
-}
-
-function pptxTableOptions(options) {
-  const { x, y, w, colW, autoPage = false, autoPageRepeatHeader = false, rowH = 0.3 } = options;
-  return {
-    x, y, w, colW, rowH, autoPage, autoPageRepeatHeader,
-    border: { type: 'solid', color: 'dce7f3', pt: 0.5 },
-    fontSize: 9, color: '17395d', valign: 'middle'
-  };
-}
-
-function addPptxCards(pptx, slide, cards, options) {
-  const { x, y, w, cols, cardH = 1.15 } = options;
-  const gap = 0.2;
-  const cardW = (w - gap * (cols - 1)) / cols;
-  cards.forEach((card, index) => {
-    const col = index % cols;
-    const row = Math.floor(index / cols);
-    const cx = x + col * (cardW + gap);
-    const cy = y + row * (cardH + gap);
-    slide.addShape(pptx.ShapeType.roundRect, { x: cx, y: cy, w: cardW, h: cardH, fill: { color: 'f5f9ff' }, line: { color: 'dce7f3', width: 0.75 }, rectRadius: 0.08 });
-    slide.addText(String(card.value), { x: cx + 0.08, y: cy + 0.14, w: cardW - 0.16, h: cardH * 0.52, fontSize: cardH > 1 ? 19 : 16, bold: true, color: card.color || '0f3c70', align: 'center', valign: 'middle' });
-    slide.addText(String(card.label), { x: cx + 0.06, y: cy + cardH - 0.44, w: cardW - 0.12, h: 0.34, fontSize: 8.5, color: '6d829b', align: 'center', valign: 'middle' });
-  });
-}
-
 async function generatePptx() {
-  if (typeof PptxGenJS === 'undefined') {
-    toast('No se pudo cargar el generador de PowerPoint. Recarga la página e inténtalo de nuevo.');
+  if (typeof JSZip === 'undefined') {
+    toast('No se pudo cargar el lector de la plantilla. Recarga la página e inténtalo de nuevo.');
     return;
   }
   if (!data.schema) {
@@ -542,128 +623,82 @@ async function generatePptx() {
     const start = $('date-start').value;
     const end = $('date-end').value;
     const kind = reportPeriod || periodKindFromRange(start, end);
-    const kindLabel = PERIOD_LABELS[kind] || null;
+    if (!start || !end || !kind) throw new Error('Selecciona una fecha base y elige Día, Semana o Mes antes de generar el reporte.');
+    const kindLabel = PERIOD_LABELS[kind];
     const rangeText = formatRange(start, end);
-    const titleSuffix = kindLabel ? `${kindLabel} ` : '';
+    const periodText = `${kindLabel} ${rangeText}`;
 
     const kpiRows = rows('kpi');
     const bitacoraRows = rows('bitacora');
     const calendarRows = rows('calendar');
     const equipmentRows = rows('equipment');
-    const families = familyIndicators(kpiRows, bitacoraRows);
+    const families = familyIndicators(kpiRows, bitacoraRows).map(family => ({
+      ...family,
+      reportRows: reportEquipmentRows(family.rows, family.logRows)
+    })).sort((a, b) => b.reportRows.length - a.reportRows.length || b.worked - a.worked);
     const global = globalIndicators(kpiRows, bitacoraRows, calendarRows);
+    if (families.length > 12) throw new Error(`La plantilla conserva 12 páginas por familia y el periodo tiene ${families.length}. No se exportó para evitar omitir una familia.`);
+    const response = await fetch('./assets/report-template.bin', { cache: 'no-store' });
+    if (!response.ok) throw new Error('No se pudo descargar la plantilla PowerPoint del portal.');
+    const archive = await JSZip.loadAsync(await response.arrayBuffer());
 
-    const NAVY = '092744', BLUE = '1476df', CYAN = '16b5e5', INK = '17395d', MUTED = '6d829b';
-    const W = 13.333, H = 7.5;
-
-    const pptx = new PptxGenJS();
-    pptx.layout = 'LAYOUT_WIDE';
-    pptx.author = REPORT_BRAND;
-    pptx.company = REPORT_BRAND;
-    pptx.subject = `Reporte ${titleSuffix}de mantenimiento`;
-    pptx.title = `${REPORT_UNIT} · Reporte ${titleSuffix}${rangeText}`;
-
-    const addFooter = slide => {
-      slide.addText(`${REPORT_BRAND} · ${REPORT_UNIT}`, { x: 0.55, y: H - 0.44, w: 7, h: 0.3, fontSize: 8, color: MUTED });
-      slide.addText(`Reporte ${titleSuffix}${rangeText}`, { x: W - 7.55, y: H - 0.44, w: 7, h: 0.3, fontSize: 8, color: MUTED, align: 'right' });
-    };
-
-    let slide = pptx.addSlide();
-    slide.background = { color: NAVY };
-    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.22, fill: { color: CYAN } });
-    slide.addText(REPORT_BRAND, { x: 1.0, y: 1.75, w: 11.3, h: 0.5, fontSize: 20, bold: true, color: 'FFFFFF', charSpacing: 5 });
-    slide.addText('MANTENIMIENTO', { x: 1.0, y: 2.3, w: 11.3, h: 0.4, fontSize: 13, color: CYAN, charSpacing: 7 });
-    slide.addText('Resultados Unidad', { x: 1.0, y: 3.05, w: 11.3, h: 0.7, fontSize: 26, color: 'BFD8F2' });
-    slide.addText(REPORT_UNIT, { x: 1.0, y: 3.7, w: 11.3, h: 0.95, fontSize: 40, bold: true, color: 'FFFFFF' });
-    slide.addText(`Reporte ${titleSuffix}${rangeText}`, { x: 1.0, y: 4.85, w: 11.3, h: 0.5, fontSize: 16, color: 'FFFFFF' });
-    slide.addText(`Generado el ${new Date().toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' })}`, { x: 1.0, y: 6.65, w: 11.3, h: 0.4, fontSize: 10, color: '8FB6DC' });
-
-    slide = pptx.addSlide();
-    slide.background = { color: NAVY };
-    slide.addText('MANTENIMIENTO', { x: 0, y: 3.0, w: W, h: 1.0, fontSize: 44, bold: true, color: 'FFFFFF', align: 'center', charSpacing: 6 });
-    slide.addText(`${REPORT_BRAND} · ${REPORT_UNIT}`, { x: 0, y: 4.05, w: W, h: 0.5, fontSize: 14, color: '8FB6DC', align: 'center', charSpacing: 2 });
-
-    slide = pptx.addSlide();
-    slide.addText('Indicadores de mantenimiento', { x: 0.6, y: 0.45, w: 12.1, h: 0.6, fontSize: 24, bold: true, color: NAVY });
-    slide.addText(`Resumen general · ${rangeText}`, { x: 0.6, y: 1.05, w: 12.1, h: 0.4, fontSize: 12, color: MUTED });
-    addPptxCards(pptx, slide, [
-      { label: 'Disponibilidad', value: pctText(global.availability), color: '12a66a' },
-      { label: 'Utilización', value: pctText(global.utilization), color: BLUE },
-      { label: 'TMEF promedio', value: hrsText(global.tmef), color: 'e0673c' },
-      { label: 'TMPR promedio', value: hrsText(global.tmpr), color: '0ba6a7' },
-      { label: 'Horas operadas', value: fmt(global.worked), color: INK },
-      { label: 'Horas MP / MC', value: `${fmt(global.mp)} / ${fmt(global.mc)}`, color: '8052e8' },
-      { label: 'Paros registrados', value: fmt(global.stops, 0), color: 'b43b45' },
-      { label: 'Equipos con KPI', value: String(global.kpiEquipment), color: INK },
-      { label: 'Cortes KPI', value: String(global.cuts), color: INK },
-      { label: 'Capturas de bitácora', value: String(global.logs), color: 'f59b18' },
-      { label: 'Servicios preventivos', value: String(global.services), color: '0ba6a7' },
-      { label: 'Cumplimiento preventivo', value: pctText(global.completion), color: '12a66a' }
-    ], { x: 0.6, y: 1.7, w: 12.1, cols: 4 });
-    slide.addText('Disponibilidad, utilización, TMEF y TMPR muestran el promedio de los cortes KPI incluidos. Horas, MP, MC y paros se suman de bitácora dentro del periodo; si no hay corte KPI, el indicador se marca como —.', { x: 0.65, y: 6.62, w: 12.0, h: 0.28, fontSize: 8, color: MUTED, breakLine: false, fit: 'shrink' });
-    addFooter(slide);
-
-    for (const family of families) {
-      slide = pptx.addSlide();
-      slide.addText(`Indicadores · ${family.family}`, { x: 0.55, y: 0.4, w: 12.2, h: 0.55, fontSize: 20, bold: true, color: NAVY });
-      slide.addText(`${family.equipment} equipo(s) · ${family.cuts} corte(s) KPI · ${rangeText}`, { x: 0.55, y: 0.95, w: 12.2, h: 0.35, fontSize: 11, color: MUTED });
-      addPptxCards(pptx, slide, [
-        { label: 'Disponibilidad', value: pctText(family.availability), color: '12a66a' },
-        { label: 'Utilización', value: pctText(family.utilization), color: BLUE },
-        { label: 'Horas operadas', value: fmt(family.worked), color: INK },
-        { label: 'MP / MC (h)', value: `${fmt(family.mp)} / ${fmt(family.mc)}`, color: '8052e8' },
-        { label: 'Paros', value: fmt(family.stops, 0), color: 'b43b45' },
-        { label: 'TMEF / TMPR (h)', value: `${fmt(family.tmef)} / ${fmt(family.tmpr)}`, color: '0ba6a7' }
-      ], { x: 0.55, y: 1.45, w: 12.2, cols: 3, cardH: 0.95 });
-      const items = reportEquipmentRows(family.rows, family.logRows);
-      const table = [['Equipo', 'Descripción', 'Dispon.', 'Utiliz.', 'Horas', 'MP', 'MC', 'Paros', 'Estado'].map(pptxHeader)];
-      for (const item of items) {
-        table.push([
-          { text: item.equipment, options: { bold: true, color: INK } },
-          { text: item.description || '—', options: { color: INK } },
-          { text: pctText(item.availability), options: { align: 'center' } },
-          { text: pctText(item.utilization), options: { align: 'center' } },
-          { text: fmt(item.worked_hours), options: { align: 'center' } },
-          { text: fmt(item.mp_hours), options: { align: 'center' } },
-          { text: fmt(item.mc_hours), options: { align: 'center' } },
-          { text: fmt(item.stops, 0), options: { align: 'center' } },
-          { text: String(item.status || '—'), options: { align: 'center' } }
-        ]);
-      }
-      slide.addTable(table, pptxTableOptions({ x: 0.55, y: 3.45, w: 12.2, colW: [1.4, 3.6, 1.15, 1.15, 1.05, 0.95, 0.95, 0.95, 1.0], autoPage: items.length > 8, autoPageRepeatHeader: items.length > 8 }));
-      addFooter(slide);
+    const familyPages = [];
+    for (let slideNo = 4; slideNo <= 15; slideNo++) {
+      const path = `ppt/slides/slide${slideNo}.xml`;
+      const document = parsePptxSlide(await archive.file(path).async('string'));
+      const capacity = pptxTableRows(document).slice(1).filter(row => pptxCellText(pptxRowCells(row)[0] || row).includes('__DATA_ROW__')).length;
+      familyPages.push({ slideNo, path, document, capacity });
     }
+    const remainingFamilies = [...families];
+    for (const page of familyPages.sort((a, b) => b.capacity - a.capacity || a.slideNo - b.slideNo)) {
+      const family = remainingFamilies[0]?.reportRows.length === page.capacity + 1
+        ? remainingFamilies.shift()
+        : (() => { const index = remainingFamilies.findIndex(item => item.reportRows.length <= page.capacity); return index >= 0 ? remainingFamilies.splice(index, 1)[0] : null; })();
+      if (!family && remainingFamilies.length) throw new Error(`No hay espacio en la plantilla para la familia ${remainingFamilies[0].family}; no se generó un archivo incompleto.`);
+      const metrics = family ? [pctText(family.availability), pctText(family.utilization), fmt(family.worked), `${fmt(family.mp)} / ${fmt(family.mc)}`, fmt(family.stops, 0), `${fmt(family.tmef)} / ${fmt(family.tmpr)}`] : ['—', '—', '—', '— / —', '—', '— / —'];
+      replacePptxMarker(page.document, '{{FAMILIA}}', family?.family || 'Sin registros');
+      replacePptxMarker(page.document, '{{EQUIPOS}}', family ? String(family.equipment) : '0');
+      replacePptxMarker(page.document, '{{CORTES}}', family ? String(family.cuts) : '0');
+      replacePptxMarker(page.document, '{{RANGO}}', rangeText);
+      metrics.forEach((value, index) => replacePptxMarker(page.document, `{{FM${String(index).padStart(2, '0')}}}`, value));
+      replacePptxMarker(page.document, '{{PERIODO}}', periodText);
+      expandPptxDataTable(page.document, family?.reportRows.length || 0);
+      fillPptxDataTable(page.document, family?.reportRows || [], item => [item.equipment, item.description || '—', pctText(item.availability), pctText(item.utilization), fmt(item.worked_hours), fmt(item.mp_hours), fmt(item.mc_hours), fmt(item.stops, 0), item.status || '—']);
+      archive.file(page.path, new XMLSerializer().serializeToString(page.document));
+    }
+    if (remainingFamilies.length) throw new Error(`La plantilla no pudo asignar página a: ${remainingFamilies.map(item => item.family).join(', ')}.`);
 
-    const conditionRows = [['Equipo', 'No. económico', 'Condición', 'Observaciones'].map(pptxHeader)];
-    const byFamily = new Map();
+    const general = parsePptxSlide(await archive.file('ppt/slides/slide3.xml').async('string'));
+    replacePptxMarker(general, '{{RANGO}}', rangeText);
+    replacePptxMarker(general, '{{PERIODO}}', periodText);
+    const generalMetrics = [pctText(global.availability), pctText(global.utilization), hrsText(global.tmef), hrsText(global.tmpr), fmt(global.worked), `${fmt(global.mp)} / ${fmt(global.mc)}`, fmt(global.stops, 0), String(global.kpiEquipment), String(global.cuts), String(global.logs), String(global.services), pctText(global.completion)];
+    generalMetrics.forEach((value, index) => replacePptxMarker(general, `{{M${String(index).padStart(2, '0')}}}`, value));
+    archive.file('ppt/slides/slide3.xml', new XMLSerializer().serializeToString(general));
+
+    const cover = parsePptxSlide(await archive.file('ppt/slides/slide1.xml').async('string'));
+    replacePptxMarker(cover, '{{PERIODO}}', periodText);
+    replacePptxMarker(cover, '{{GENERADO}}', new Date().toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' }));
+    archive.file('ppt/slides/slide1.xml', new XMLSerializer().serializeToString(cover));
+
+    const conditionDocument = parsePptxSlide(await archive.file('ppt/slides/slide16.xml').async('string'));
+    const grouped = new Map();
     for (const row of equipmentRows) {
       const family = familyLabel(row.family);
-      if (!byFamily.has(family)) byFamily.set(family, []);
-      byFamily.get(family).push(row);
+      if (!grouped.has(family)) grouped.set(family, []);
+      grouped.get(family).push(row);
     }
-    const familyNames = [...byFamily.keys()].sort((a, b) => String(a).localeCompare(String(b), 'es'));
-    for (const family of familyNames) {
-      conditionRows.push([{ text: family, options: { colspan: 4, bold: true, color: '0f3c70', fill: 'eaf1f9', align: 'left' } }]);
-      for (const row of byFamily.get(family).sort((a, b) => String(a.code).localeCompare(String(b.code), 'es'))) {
-        conditionRows.push([
-          { text: row.description || row.code, options: { color: INK } },
-          { text: row.code || '—', options: { align: 'center', bold: true } },
-          { text: String(row.status || '—'), options: { align: 'center' } },
-          { text: '', options: {} }
-        ]);
-      }
-    }
-    slide = pptx.addSlide();
-    slide.addText('Condición de equipos', { x: 0.55, y: 0.4, w: 12.2, h: 0.55, fontSize: 22, bold: true, color: NAVY });
-    slide.addText(`${equipmentRows.length} equipo(s) · ${familyNames.length} familia(s) · ${rangeText}`, { x: 0.55, y: 0.95, w: 12.2, h: 0.35, fontSize: 11, color: MUTED });
-    if (conditionRows.length > 1) {
-      slide.addTable(conditionRows, pptxTableOptions({ x: 0.55, y: 1.45, w: 12.2, colW: [5.0, 1.9, 1.9, 3.4], rowH: 0.28, autoPage: true, autoPageRepeatHeader: true }));
-    } else {
-      slide.addText('Sin equipos para los filtros seleccionados.', { x: 0.55, y: 1.6, w: 12.2, h: 0.4, fontSize: 12, color: MUTED });
-    }
-    addFooter(slide);
+    const conditionGroups = [...grouped].sort((a, b) => a[0].localeCompare(b[0], 'es')).map(([family, items]) => ({ family, items: items.sort((a, b) => String(a.code).localeCompare(String(b.code), 'es')) }));
+    const conditionDocuments = [conditionDocument];
+    for (let slideNo = 17; slideNo <= 19; slideNo++) conditionDocuments.push(parsePptxSlide(await archive.file(`ppt/slides/slide${slideNo}.xml`).async('string')));
+    replacePptxMarker(conditionDocument, '{{EQUIPOS}}', String(equipmentRows.length));
+    replacePptxMarker(conditionDocument, '{{FAMILIAS}}', String(conditionGroups.length));
+    replacePptxMarker(conditionDocument, '{{RANGO}}', rangeText);
+    replacePptxMarker(conditionDocument, '{{PERIODO}}', periodText);
+    fillPptxConditionTables(conditionDocuments, conditionGroups);
+    conditionDocuments.forEach((document, index) => archive.file(`ppt/slides/slide${index + 16}.xml`, new XMLSerializer().serializeToString(document)));
 
-    await pptx.writeFile({ fileName: `Reporte_${kindLabel || 'Mantenimiento'}_${start || 'periodo'}.pptx` });
+    const output = await archive.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+    download(output, `Reporte_${kind}_${start}.pptx`);
     toast(`Reporte ${kindLabel ? kindLabel.toLocaleLowerCase('es-MX') : 'de mantenimiento'} generado: ${equipmentRows.length} equipos · ${kpiRows.length} cortes KPI.`);
   } catch (error) {
     toast(`No se pudo generar el reporte: ${error.message}`);
