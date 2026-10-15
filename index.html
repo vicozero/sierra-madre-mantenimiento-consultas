@@ -8,6 +8,8 @@
   <title>Consultas de mantenimiento | Sierra Madre</title>
   <link rel="icon" href="./assets/logo.png">
   <link rel="stylesheet" href="./styles.css">
+  <script src="./assets/jszip.min.js" defer></script>
+  <script src="./assets/report-workbook.js" defer></script>
   <script src="./assets/pptxgen.bundle.js" defer></script>
   <script src="./assets/jspdf.bundle.js" defer></script>
   <script src="./app.js" defer></script>
@@ -207,7 +209,7 @@
     </section>
 
     <section id="view-reportes" class="view">
-      <div class="section-heading"><div><div class="eyebrow">SALIDAS DEL PORTAL</div><h2>Reportes de mantenimiento</h2><p>Genera el reporte en PowerPoint (mensual, semanal o diario) con el periodo, la familia y el turno seleccionados.</p></div></div>
+      <div class="section-heading"><div><div class="eyebrow">SALIDAS DEL PORTAL</div><h2>Reportes de mantenimiento</h2><p>Genera reportes mensuales, semanales o diarios con la información publicada y los filtros seleccionados.</p></div></div>
       <article class="panel report-feature">
         <div class="report-feature-head">
           <div class="report-feature-info">
@@ -230,7 +232,7 @@
       </article>
       <div class="report-grid">
         <article class="panel report-card"><span class="report-icon">▧</span><h3>Reporte en PDF</h3><p>Abre la impresión del resumen consultado; puedes guardarlo como PDF desde el navegador.</p><button class="button button-primary" id="report-pdf">Generar PDF</button></article>
-        <article class="panel report-card"><span class="report-icon">⇩</span><h3>Datos para Excel</h3><p>Descarga un archivo CSV compatible con Excel para la sección que estás consultando.</p><button class="button button-primary" id="report-excel">Exportar CSV para Excel</button></article>
+        <article class="panel report-card"><span class="report-icon">⇩</span><h3>Reporte profesional en Excel</h3><p>Libro con resumen por familia, gráficas de disponibilidad/utilización y hojas de KPI, bitácora y calendario.</p><button class="button button-primary" id="report-excel">Descargar Excel (.xlsx)</button><small id="report-excel-note" class="report-note">Las gráficas usan los cortes KPI publicados; un reporte semanal identifica el corte disponible para no presentar un KPI mensual como semanal.</small></article>
       </div>
       <article class="panel"><div class="panel-head"><div><h3>Alcance del reporte</h3><p id="report-scope">—</p></div></div><div id="report-breakdown" class="report-breakdown"></div></article>
     </section>

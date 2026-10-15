@@ -147,7 +147,9 @@ function calendarRowsForView() {
   const status = $('calendar-status').value;
   const type = $('calendar-type').value;
   const query = $('calendar-search').value.trim().toLocaleLowerCase('es-MX');
-  return rows('calendar').filter(row => {
+  // El almanaque tiene navegación y filtros propios. No usar rows('calendar'),
+  // porque aplica el rango KPI global y recorta los preventivos proyectados a futuro.
+  return data.calendar.filter(row => {
     if (family && row.family !== family) return false;
     if (equipment && row.equipment !== equipment) return false;
     if (status && normStatus(row.status) !== status) return false;
@@ -184,7 +186,8 @@ function calendarItem(row) {
   const target = num(row.target);
   const meter = num(row.meter);
   const more = [target === null ? '' : `Objetivo ${fmt(target)} ${row.unit || ''}`, meter === null ? '' : `Medidor ${fmt(meter)} ${row.unit || ''}`, row.status || ''].filter(Boolean).join(' · ');
-  return `<div class="service-event ${kind}" title="${esc(`${label} · ${detail}${more ? ` · ${more}` : ''}`)}"><span class="service-event-title">${esc(label)}</span><span class="service-event-equipment">${esc(detail)}</span></div>`;
+  const targetText = target === null ? '' : `Objetivo ${fmt(target)} ${row.unit || ''}`;
+  return `<div class="service-event ${kind}" title="${esc(`${label} · ${detail}${more ? ` · ${more}` : ''}`)}"><span class="service-event-title">${esc(label)}</span><span class="service-event-equipment">${esc(detail)}</span><span class="service-event-meta">${esc(row.status || 'Programado')}${targetText ? ` · ${esc(targetText)}` : ''}</span></div>`;
 }
 
 function calendarPeriodRows(list) {
@@ -880,6 +883,22 @@ function openEquipment(code) {
   const tmef = average(kpiRows.filter(row => (num(row.tmef) || 0) > 0), 'tmef');
   const tmpr = average(kpiRows.filter(row => (num(row.tmpr) || 0) > 0), 'tmpr');
   const logs = data.bitacora.filter(row => row.equipment === code && inRange(row)).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 8);
+  const dailyGroups = new Map();
+  for (const row of data.bitacora.filter(item => item.equipment === code && inRange(item))) {
+    const date = String(row.date || '').slice(0, 10);
+    if (!date) continue;
+    const day = dailyGroups.get(date) || { date, worked: 0, mp: 0, mc: 0, captures: 0 };
+    day.worked += num(row.worked_hours) || 0;
+    day.mp += num(row.mp_hours) || 0;
+    day.mc += num(row.mc_hours) || 0;
+    day.captures += 1;
+    dailyGroups.set(date, day);
+  }
+  const kpiByDate = new Map(kpiRows.filter(row => row.date).map(row => [String(row.date).slice(0, 10), row]));
+  const dailyRows = [...new Set([...dailyGroups.keys(), ...kpiByDate.keys()])].sort((a, b) => b.localeCompare(a)).map(date => ({
+    ...(dailyGroups.get(date) || { date, worked: null, mp: null, mc: null, captures: 0 }),
+    kpi: kpiByDate.get(date) || null
+  }));
   const services = data.calendar.filter(row => row.equipment === code).sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(0, 8);
   const trendPoints = kpiRows.filter(row => num(row.availability) !== null).map(row => ({ date: row.date, value: Number(row.availability) }));
   const description = base.description || last.description || code;
@@ -902,6 +921,11 @@ function openEquipment(code) {
     <article class="detail-block">
       <div class="detail-block-head"><h4>Disponibilidad por corte</h4><span>${trendPoints.length} corte(s) en el periodo</span></div>
       ${miniTrend(trendPoints)}
+    </article>
+    <article class="detail-block">
+      <div class="detail-block-head"><h4>Indicadores y horas por fecha</h4><span>${dailyRows.length} día(s)</span></div>
+      <p class="daily-kpi-note">Disponibilidad y utilización se muestran únicamente en las fechas publicadas como corte KPI. Las horas diarias son la suma de capturas de bitácora del equipo.</p>
+      ${dailyRows.length ? `<div class="table-wrap daily-kpi-table"><table><thead><tr><th>Fecha</th><th>Disponibilidad<br><small>corte KPI</small></th><th>Utilización<br><small>corte KPI</small></th><th>Horas trabajadas</th><th>Horas MP</th><th>Horas MC</th><th>Horas mantenimiento</th><th>Capturas</th></tr></thead><tbody>${dailyRows.map(row => `<tr><td>${formatDate(row.date)}</td><td>${row.kpi && num(row.kpi.availability) !== null ? `${fmt(row.kpi.availability)}%` : '—'}</td><td>${row.kpi && num(row.kpi.utilization) !== null ? `${fmt(row.kpi.utilization)}%` : '—'}</td><td>${fmt(row.worked)}</td><td>${fmt(row.mp)}</td><td>${fmt(row.mc)}</td><td>${fmt(row.mp === null && row.mc === null ? null : (row.mp || 0) + (row.mc || 0))}</td><td>${row.captures || '—'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Sin KPI ni capturas de bitácora para este equipo en el periodo seleccionado.</div>'}
     </article>
     <div class="detail-columns">
       <article class="detail-block">
@@ -1000,7 +1024,6 @@ function render() {
   renderCalendar(calendarRowsForView());
   setRows('equipment-table', equipmentRows, 4, row => `<tr data-equipment="${esc(row.code)}" tabindex="0"><td><b>${esc(row.code)}</b></td><td>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${badge(row.status)}</td></tr>`);
   $('bitacora-count').textContent = `${bitacoraRows.length} registros`;
-  $('calendar-count').textContent = `${calendarByEquipment.length} equipos · ${calendarRows.length} servicios`;
   $('equipment-count').textContent = `${equipmentRows.length} equipos`;
 
   const updated = data.meta?.updatedAt || '—';
@@ -1134,6 +1157,73 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
 }
 
+function filteredReportRows(section, start, end, { applyDate = true } = {}) {
+  const { family, equipment, shift, status, condition, type, query } = filterValues();
+  return (data[section] || []).filter(row => {
+    if (family && row.family !== family) return false;
+    if (equipment && rowCode(section, row) !== equipment) return false;
+    if (shift && section === 'bitacora' && row.shift !== shift) return false;
+    if (status && normStatus(row.status) !== status) return false;
+    if (condition && conditionOf(section, row) !== condition) return false;
+    if (type && section === 'calendar' && String(row.type || '') !== type) return false;
+    if (query && !Object.values(row).join(' ').toLocaleLowerCase('es-MX').includes(query)) return false;
+    if (applyDate && row.date && start && row.date.slice(0, 10) < start) return false;
+    if (applyDate && row.date && end && row.date.slice(0, 10) > end) return false;
+    return true;
+  });
+}
+
+async function generateExcelReport() {
+  if (!data.schema) return toast('Aún no hay información publicada para generar el Excel.');
+  if (!window.SierraExcelReport?.createReport) return toast('No se cargó el generador Excel. Recarga la página e inténtalo de nuevo.');
+  const button = $('report-excel');
+  const note = $('report-excel-note');
+  const start = $('date-start').value || data.meta?.periodStart || '';
+  const end = $('date-end').value || data.meta?.periodEnd || '';
+  const kind = reportPeriod || periodKindFromRange(start, end) || 'periodo';
+  if (!start || !end) return toast('Selecciona un rango de fechas para el reporte.');
+  button.disabled = true;
+  const oldLabel = button.textContent;
+  button.textContent = 'Preparando Excel…';
+  try {
+    let kpiRows = filteredReportRows('kpi', start, end);
+    let weeklyNote = '';
+    if (kind === 'semanal') {
+      const kpiDates = [...new Set(data.kpi.map(row => String(row.date || '').slice(0, 10)).filter(Boolean))];
+      const hasDailyCuts = data.meta?.kpiGranularity === 'diaria' || kpiDates.some(date => {
+        const parsed = dateAtNoon(date);
+        return parsed && parsed.getDate() !== new Date(parsed.getFullYear(), parsed.getMonth() + 1, 0).getDate() && date !== data.meta?.periodEnd;
+      });
+      if (!hasDailyCuts) {
+        const referenceDate = data.kpi.map(row => String(row.date || '').slice(0, 10)).filter(date => date && date <= end).sort().at(-1);
+        kpiRows = referenceDate ? filteredReportRows('kpi', '', '', { applyDate: false }).filter(row => String(row.date || '').slice(0, 10) === referenceDate) : [];
+        weeklyNote = referenceDate
+          ? `El paquete publica KPI por corte mensual, no KPI semanal. La gráfica y la hoja KPI muestran como referencia el último corte disponible (${formatDate(referenceDate)}); no representan el resultado exclusivo de esta semana. La bitácora y servicios sí están filtrados a la semana.`
+          : 'El paquete no contiene KPI publicado hasta el cierre de esta semana. Se conservan las hojas de bitácora y calendario con los datos disponibles.';
+      }
+    }
+    const bitacora = filteredReportRows('bitacora', start, end);
+    const calendar = filteredReportRows('calendar', start, end);
+    const kpiDetails = aggregateByEquipment(kpiRows).map(row => ({ ...row, date: kpiRows.filter(item => item.equipment === row.equipment).map(item => item.date).filter(Boolean).sort().at(-1) || '' }));
+    const families = familyIndicators(kpiRows);
+    const result = await window.SierraExcelReport.createReport({
+      label: PERIOD_LABELS[kind] || 'Periodo seleccionado', range: formatRange(start, end),
+      asOf: formatDateTime(data.meta?.updatedAt), families, kpiDetails, bitacora, calendar, weeklyNote
+    });
+    const filename = `SierraMadre_Reporte_${kind}_${start}_al_${end}.xlsx`;
+    download(result.blob, filename);
+    const chartText = result.chartCount ? `${result.kpiFamilyCount} familias en gráficas KPI` : 'sin cortes KPI para graficar';
+    note.textContent = weeklyNote || `${chartText}. Datos al ${formatDateTime(data.meta?.updatedAt)}.`;
+    toast(`Excel listo: ${kpiDetails.length} equipos KPI, ${bitacora.length} capturas y ${calendar.length} servicios.`);
+  } catch (error) {
+    note.textContent = `No se pudo generar el libro: ${error.message}`;
+    toast(`No se pudo generar el Excel: ${error.message}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = oldLabel;
+  }
+}
+
 function printReport() {
   document.body.classList.add('printing');
   window.print();
@@ -1178,7 +1268,8 @@ $('apply-filters').addEventListener('click', render);
 $('refresh-data').addEventListener('click', refreshData);
 $('load-data').addEventListener('click', () => $('file-input').click());
 $('file-input').addEventListener('change', event => loadLocal(event.target.files?.[0]));
-['export-excel', 'quick-excel', 'report-excel'].forEach(id => $(id).addEventListener('click', csvExport));
+['export-excel', 'quick-excel'].forEach(id => $(id).addEventListener('click', csvExport));
+$('report-excel').addEventListener('click', generateExcelReport);
 ['export-pdf', 'quick-pdf', 'report-pdf'].forEach(id => $(id).addEventListener('click', printReport));
 document.querySelectorAll('#period-toggle [data-period]').forEach(button => button.addEventListener('click', () => applyPeriod(button.dataset.period)));
 $('report-pptx').addEventListener('click', generatePptx);
