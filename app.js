@@ -1,5 +1,5 @@
 const API_URL = 'https://sierra-madre-consulta-api.feywren128.chatgpt.site/api/portal';
-const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [] };
+const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [] };
 const PALETTE = ['#1476df', '#31ad72', '#f6be25', '#f28a27', '#8052e8', '#0ba6a7', '#75869a'];
 let data = structuredClone(EMPTY);
 let view = 'inicio';
@@ -16,7 +16,8 @@ const VIEWS = {
   bitacora: { label: 'Bitácora', title: 'Bitácora de equipos', subtitle: 'Lecturas de medidor, horas y estado por fecha y turno.' },
   calendario: { label: 'Calendario de servicio', title: 'Calendario de servicio', subtitle: 'Servicios programados, proyectados y completados dentro del periodo.' },
   equipos: { label: 'Equipos', title: 'Equipos', subtitle: 'Catálogo consultivo del programa.' },
-  reportes: { label: 'Reportes', title: 'Reportes de mantenimiento', subtitle: 'Genera archivos con el periodo, familia y turno seleccionados.' }
+  reportes: { label: 'Reportes', title: 'Reportes de mantenimiento', subtitle: 'Genera archivos con el periodo, familia y turno seleccionados.' },
+  diesel: { label: 'Diesel', title: 'Consumo de Diesel', subtitle: 'Consumo y costos de combustible por periodo y unidad.' }
 };
 
 const $ = id => document.getElementById(id);
@@ -1408,6 +1409,248 @@ document.addEventListener('keydown', event => {
     event.preventDefault();
     openEquipment(event.target.dataset.equipment);
   }
+});
+
+render();
+refreshData();
+
+// ============ FUNCIONES DIESEL ============
+
+function filterValuesDiesel() {
+  const { family, equipment, shift, status, condition, type, query, start, end } = filterValues();
+  return {
+    family: $("family-filter").value,
+    equipment: $("equipment-filter").value,
+    shift: $("shift-filter").value,
+    status: normStatus($("status-filter").value),
+    condition: $("condition-filter").value,
+    type: $("type-filter").value,
+    query: $("search").value.trim().toLocaleLowerCase("es-MX"),
+    start: $("date-start").value,
+    end: $("date-end").value,
+    dieselStart: $("diesel-date-start") ? $("diesel-date-start").value : "",
+    dieselEnd: $("diesel-date-end") ? $("diesel-date-end").value : ""
+  };
+}
+
+function rowCodeDiesel(row) {
+  return row.equipment || row.code || "";
+}
+
+function normStatusDiesel(value) {
+  return String(value || "").trim().toLocaleLowerCase("es-MX");
+}
+
+function conditionOfDiesel(row) {
+  const status = normStatusDiesel(row.status);
+  if (/disponible|operativo|complet|termin|realiz|ejecut/.test(status)) return "disponible";
+  if /no disponible|fuera|venc|fall|cr.tic|detenid/.test(status)) return "critico";
+  if /program|pend|proceso|urgente|proxim|riesgo|amarill/.test(status)) return "riesgo";
+  return "sindato";
+}
+
+function dieselRows() {
+  const { dieselStart, dieselEnd, shift, status, condition, type, family, equipment, query } = filterValuesDiesel();
+  return (data.diesel || []).filter(row => {
+    if (family && row.family !== family) return false;
+    if (equipment && rowCodeDiesel(row) !== equipment) return false;
+    if (shift && row.shift !== shift) return false;
+    if (status && normStatusDiesel(row.status) !== status) return false;
+    if (condition && conditionOfDiesel(row) !== condition) return false;
+    if (type && String(row.type || "") !== type) return false;
+    if (query && !Object.values(row).join(" ").toLocaleLowerCase("es-MX").includes(query)) return false;
+    if (row.date && start && row.date.slice(0, 10) < start) return false;
+    if (row.date && end && row.date.slice(0, 10) > end) return false;
+    if (dieselStart && row.date.slice(0, 10) < dieselStart) return false;
+    if (dieselEnd && row.date.slice(0, 10) > dieselEnd) return false;
+    return true;
+  });
+}
+
+function dieselIndicators(dieselRows) {
+  const groups = new Map();
+  for (const row of dieselRows) {
+    const family = row.family || "Sin familia";
+    if (!groups.has(family)) groups.set(family, []);
+    groups.get(family).push(row);
+  }
+  return [...groups].map(([family, items]) => ({
+    family,
+    equipment: distinctCountDiesel(items, "equipment"),
+    consumption: sumFieldDiesel(items, "consumption"),
+    cost: sumFieldDiesel(items, "cost"),
+    rows: items.length
+  })).sort((a, b) => b.consumption - a.consumption);
+}
+
+function distinctCountDiesel(list, key) {
+  return new Set(list.map(row => row[key]).filter(Boolean)).size;
+}
+
+function sumFieldDiesel(list, key) {
+  return list.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
+}
+
+function generateDieselPDF() {
+  if (typeof jsPDF === "undefined") {
+    toast("No se pudo cargar jsPDF. Recarga la página e intente de nuevo.");
+    return;
+  }
+  const start = $("diesel-date-start") ? $("diesel-date-start").value : "";
+  const end = $("diesel-date-end") ? $("diesel-date-end").value : "";
+  if (!start || !end) {
+    toast("Selecciona un periodo primero.");
+    return;
+  }
+
+  const dieselRows = dieselRows();
+  const indicators = dieselIndicators(dieselRows);
+
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [210, 297] });
+  const NAVY = "092744", BLUE = "1476df", CYAN = "16b5e5", INK = "17395d", MUTED = "6d829b";
+  const WHITE = "FFFFFF", ORANGE = "F59E0B", GREEN = "12A66A", RED = "EF4444";
+
+  // Header
+  pdf.setFillColor(NAVY);
+  pdf.rect(0, 0, 210, 12, "F");
+  pdf.setFontSize(14);
+  pdf.setTextColor(WHITE);
+  pdf.setFont("Helvetica", "bold");
+  pdf.text("SIERRA MADRE · Mantenimiento", 10, 7);
+  pdf.setFontSize(8);
+  pdf.text("Consumo de Diesel · " + new Date().toLocaleDateString("es-MX"), 10, 10);
+
+  // KPI Cards
+  const cardH = 12;
+  const cardW = 45;
+  const gap = 5;
+  const cards = [
+    { label: "Consumo Total", value: fmt(Number(indicators.reduce((s,i)=>s+i.consumption,0))), color: GREEN },
+    { label: "Costo Total", value: fmt(Number(indicators.reduce((s,i)=>s+i.cost,0))), color: ORANGE },
+    { label: "Total Registros", value: String(indicators.reduce((s,i)=>s+i.rows,0)), color: BLUE }
+  ];
+
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const xi = 10 + i * (cardW + gap);
+    pdf.setFillColor("#F5F9FF");
+    pdf.setDrawColor("#DCE7F3");
+    pdf.setLineWidth(0.5);
+    pdf.rect(xi, 20, cardW, cardH, "DF");
+    pdf.setFontSize(11);
+    pdf.setTextColor(card.color);
+    pdf.setFont("Helvetica", "bold");
+    pdf.text(String(card.value), xi + 2, 26, { maxWidth: cardW - 4, align: "center" });
+    pdf.setFontSize(8);
+    pdf.setTextColor("#6D829B");
+    pdf.setFont("Helvetica", "");
+    pdf.text(card.label, xi + 2, 35, { maxWidth: cardW - 4, align: "center" });
+  }
+
+  // Table
+  const colW = [25, 35, 30, 25, 25, 30, 30];
+  const headers = ["Fecha", "Equipo", "Familia", "Turno", "Consumo (h)", "Costo", "Estado"];
+  const headerH = 8;
+  const rowH = 7;
+  const marginL = 10;
+  const marginT = 35;
+
+  // Header
+  pdf.setFillColor("#0F1E36");
+  pdf.setTextColor(WHITE);
+  pdf.setFontSize(7);
+  pdf.setFont("Helvetica", "bold");
+  let cx = marginL;
+  for (let i = 0; i < headers.length; i++) {
+    pdf.text(headers[i], cx, marginT, { maxWidth: colW[i], align: "center" });
+    cx += colW[i];
+  }
+
+  // Data sorted by date desc
+  const sortedRows = [...dieselRows].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const periodRows = sortedRows.filter(row => {
+    const evt = new Date(row.date + "T12:00:00");
+    return new Date(start + "T12:00:00") <= evt && evt <= new Date(end + "T12:00:00");
+  });
+
+  pdf.setFontSize(6.5);
+  pdf.setFont("Helvetica", "");
+  pdf.setTextColor("#1F2937");
+  let rowY = marginT + headerH;
+  for (let i = 0; i < periodRows.length; i++) {
+    if (rowY > 270) {
+      pdf.addPage();
+      pdf.setFillColor("#0F1E36");
+      pdf.setTextColor(WHITE);
+      pdf.setFontSize(7);
+      pdf.setFont("Helvetica", "bold");
+      cx = marginL;
+      for (let h = 0; h < headers.length; h++) {
+        pdf.text(headers[h], cx, marginT, { maxWidth: colW[h], align: "center" });
+        cx += colW[h];
+      }
+      rowY = marginT + headerH;
+    }
+
+    const row = periodRows[i];
+    const cx = marginL;
+    const dateText = row.date.slice(8, 10) + "/" + row.date.slice(5, 7) + "/" + row.date.slice(0, 4);
+    const cells = [
+      dateText,
+      row.equipment || "-",
+      row.family || "-",
+      row.shift || "-",
+      Number(row.consumption || 0).toFixed(2),
+      Number(row.cost || 0).toFixed(2),
+      row.status || "-"
+    ];
+
+    for (let ci = 0; ci < cells.length; ci++) {
+      pdf.setFontSize(6);
+      pdf.setTextColor("#1F2937");
+      pdf.setFont("Helvetica", "");
+      pdf.text(String(cells[ci]), cx, rowY, { maxWidth: colW[ci] });
+      cx += colW[ci];
+    }
+    rowY += rowH;
+  }
+
+  // Footer
+  pdf.setFontSize(7);
+  pdf.setTextColor("#64748b");
+  pdf.text("SIERRA MADRE · Mantenimiento | Diesel Report", marginL, 285);
+  pdf.text("Página " + pdf.pageNo, 200, 285, { align: "right" });
+
+  const filename = "Diesel_Report_" + start + "_" + end + ".pdf";
+  pdf.save(filename);
+  toast("PDF generado: " + filename);
+}
+
+// Diesel event listeners
+$("export-diesel-pdf").addEventListener("click", generateDieselPDF);
+$("export-diesel-csv").addEventListener("click", () => {
+  const dieselRows = dieselRows();
+  if (!dieselRows.length) return toast("No hay filas para exportar con estos filtros.");
+  const rowsCSV = dieselRows.map(row => [
+    row.date,
+    row.equipment || "-",
+    row.family || "-",
+    row.shift || "-",
+    Number(row.consumption).toFixed(2),
+    Number(row.cost).toFixed(2),
+    row.status || "-"
+  ]).map(row => cell => `"${String(cell).replaceAll('"', '""')}"`).join(",");
+  const blob = new Blob(["\ufeffFecha,Equipo,Familia,Turno,Consumo (h),Costo,Estado\r\n" + dieselRows.map(row => 
+    dieselRows.map(r => 
+      `"${String(r.date).replaceAll('"', '""')},${String(r.equipment || '-').replaceAll('"', '""')},${String(r.family || '-').replaceAll('"', '""')},${String(r.shift || '-').replaceAll('"', '""')},${Number(r.consumption).toFixed(2)},${Number(r.cost).toFixed(2)},${String(r.status || '-').replaceAll('"', '""')}`
+    ).join("\r\n")
+  ]), {type: "text/csv;charset=utf-8"});
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = "SierraMadre_ReporteDiesel_" + start + ".csv";
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+  toast("CSV exportado: SierraMadre_ReporteDiesel_" + start + ".csv");
 });
 
 render();
