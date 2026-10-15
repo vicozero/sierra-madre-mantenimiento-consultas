@@ -59,13 +59,36 @@ function badge(status) {
 }
 
 function normalize(payload) {
-  if (!payload || payload.schema !== 'sierra-madre-consultas/v1') {
-    throw new Error('El JSON no es un paquete exportado por Mantenimiento.');
-  }
+  if (!payload || typeof payload !== 'object' || payload.schema !== 'sierra-madre-consultas/v1') throw new Error('Versión de paquete no compatible. Se esperaba sierra-madre-consultas/v1.');
+  if (!payload.meta || typeof payload.meta !== 'object') throw new Error('Faltan los metadatos de generación del paquete.');
+  if (typeof payload.meta.updatedAt !== 'string' || Number.isNaN(Date.parse(payload.meta.updatedAt))) throw new Error('La fecha de generación está ausente o no es válida.');
+  const validDate = value => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = dateAtNoon(value);
+    return Boolean(date && isoDate(date) === value);
+  };
+  if (!validDate(payload.meta.periodStart) || !validDate(payload.meta.periodEnd)) throw new Error('El periodo publicado tiene fechas ausentes o inválidas.');
+  if (payload.meta.periodEnd < payload.meta.periodStart) throw new Error('El periodo publicado termina antes de su inicio.');
   for (const section of ['equipment', 'kpi', 'bitacora', 'calendar']) {
     if (!Array.isArray(payload[section])) throw new Error(`Sección faltante: ${section}`);
+    if (payload[section].some(row => !row || typeof row !== 'object' || Array.isArray(row))) throw new Error(`La sección ${section} contiene registros con formato inválido.`);
   }
   return payload;
+}
+
+function acceptPackage(candidate, current = data) {
+  const next = normalize(candidate);
+  const sections = ['equipment', 'kpi', 'bitacora', 'calendar'];
+  const emptied = sections.filter(section => current[section]?.length > 0 && next[section].length === 0);
+  if (emptied.length) throw new Error(`El paquete llegó sin registros de ${emptied.join(', ')}. Se conserva el último corte válido.`);
+  return next;
+}
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Fecha no válida';
+  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(parsed);
 }
 
 const normStatus = value => String(value || '').trim().toLocaleLowerCase('es-MX');
@@ -488,7 +511,7 @@ async function generatePptx() {
 
     const kpiRows = rows('kpi');
     const bitacoraRows = rows('bitacora');
-    const calendarRows = rows('calendar');
+    const calendarRows = view === 'calendario' ? calendarRowsForView() : rows('calendar');
     const equipmentRows = rows('equipment');
     const families = familyIndicators(kpiRows);
     const global = globalIndicators(kpiRows, bitacoraRows, calendarRows);
@@ -779,6 +802,27 @@ function renderHours(kpiRows) {
     `${fmt(item.mp + item.mc)}h`)).join('');
 }
 
+function renderShiftComparison(bitacoraRows) {
+  const host = $('shift-comparison');
+  const groups = new Map();
+  for (const row of bitacoraRows) {
+    const shift = String(row.shift || 'Sin turno').trim() || 'Sin turno';
+    const group = groups.get(shift) || { captures: 0, worked: 0, mp: 0, mc: 0, stops: 0 };
+    group.captures += 1;
+    group.worked += num(row.worked_hours) || 0;
+    group.mp += num(row.mp_hours) || 0;
+    group.mc += num(row.mc_hours) || 0;
+    group.stops += num(row.stops) || 0;
+    groups.set(shift, group);
+  }
+  const items = [...groups].map(([shift, metrics]) => ({ shift, ...metrics })).sort((a, b) => a.shift.localeCompare(b.shift, 'es'));
+  if (!items.length) {
+    host.innerHTML = '<div class="empty">Sin capturas por turno en el periodo consultado.</div>';
+    return;
+  }
+  host.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Turno</th><th>Capturas</th><th>Horas operadas</th><th>MP h</th><th>MC h</th><th>Paros</th></tr></thead><tbody>${items.map(item => `<tr><td><b>${esc(item.shift)}</b></td><td>${item.captures}</td><td>${fmt(item.worked)}</td><td>${fmt(item.mp)}</td><td>${fmt(item.mc)}</td><td>${fmt(item.stops, 0)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
 function renderTop(kpiRows) {
   const host = $('top-chart');
   const groups = new Map();
@@ -946,6 +990,7 @@ function render() {
   renderStops(kpiRows);
   renderHours(kpiRows);
   renderTop(kpiRows);
+  renderShiftComparison(bitacoraRows);
   renderSummary(kpiRows, bitacoraRows, calendarRows);
   $('kpi-count').textContent = `${kpiByEquipment.length} equipos · ${kpiRows.length} cortes`;
 
@@ -959,7 +1004,7 @@ function render() {
   $('equipment-count').textContent = `${equipmentRows.length} equipos`;
 
   const updated = data.meta?.updatedAt || '—';
-  $('updated-at').textContent = formatDate(String(updated).slice(0, 10));
+  $('updated-at').textContent = formatDateTime(updated);
   $('footer-updated').textContent = updated;
   $('data-tag').textContent = data.schema ? 'CORTE DEL PROGRAMA' : 'SIN DATOS';
   $('report-period').textContent = `${$('date-start').value || data.meta?.periodStart || '—'} a ${$('date-end').value || data.meta?.periodEnd || '—'} · KPI ${kpiRows.length} · Bitácora ${bitacoraRows.length} · Calendario ${calendarRows.length}`;
@@ -1015,7 +1060,7 @@ function fillFilters() {
 async function loadLocal(file) {
   if (!file) return;
   try {
-    data = normalize(JSON.parse(await file.text()));
+    data = acceptPackage(JSON.parse(await file.text()));
     if (data.meta.periodStart) $('date-start').value = data.meta.periodStart;
     if (data.meta.periodEnd) $('date-end').value = data.meta.periodEnd;
     fillFilters();
@@ -1024,6 +1069,10 @@ async function loadLocal(file) {
     render();
     toast('Paquete abierto localmente; no se envió al sitio.');
   } catch (error) {
+    setConnection(Boolean(data.schema), data.schema ? 'Corte válido conservado' : 'Esperando un paquete válido');
+    $('public-notice').hidden = false;
+    $('connection-error-title').textContent = 'No se pudo importar el paquete';
+    $('connection-error-detail').textContent = `${error.message} No se sustituyeron los datos que ya estaban cargados.`;
     toast(`No se pudo abrir el paquete: ${error.message}`);
   }
 }
@@ -1040,7 +1089,7 @@ async function refreshData() {
   try {
     const response = await fetch(API_URL, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    data = normalize(await response.json());
+    data = acceptPackage(await response.json());
     if (data.meta.periodStart) $('date-start').value = data.meta.periodStart;
     if (data.meta.periodEnd) $('date-end').value = data.meta.periodEnd;
     fillFilters();
@@ -1050,7 +1099,10 @@ async function refreshData() {
     toast('Información actualizada desde el programa.');
   } catch (error) {
     $('public-notice').hidden = false;
-    setConnection(false, 'Revisa la conexión o abre un paquete local');
+    setConnection(false, data.schema ? 'Sin conexión; se conserva el último corte válido' : 'Sin datos; revisa conexión o importa un paquete');
+    $('connection-label').textContent = error instanceof TypeError ? 'Sin conexión' : 'No actualizado';
+    $('connection-error-title').textContent = data.schema ? 'No se pudo actualizar el portal' : 'No hay conexión con el último corte publicado';
+    $('connection-error-detail').textContent = `${error.message || 'Error de red o respuesta inválida.'} ${data.schema ? `Se conserva el corte generado el ${formatDateTime(data.meta?.updatedAt)}.` : 'Comprueba internet o abre un JSON válido exportado por Mantenimiento.exe.'}`;
     toast(`No se pudo actualizar: ${error.message}`);
   } finally {
     button.classList.remove('spinning');
@@ -1061,7 +1113,7 @@ function csvExport() {
   const views = {
     inicio: ['KPI', aggregateByEquipment(rows('kpi')), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr', 'cuts']],
     bitacora: ['Bitacora', rows('bitacora'), ['date', 'equipment', 'description', 'family', 'shift', 'component', 'hi', 'hf', 'worked_hours', 'mp_hours', 'mc_hours', 'standby_hours', 'stops', 'status']],
-    calendario: ['Calendario', aggregateCalendarByEquipment(rows('calendar')), ['date', 'equipment', 'description', 'family', 'service', 'type', 'meter', 'target', 'unit', 'status', 'services']],
+    calendario: ['Calendario', calendarRowsForView(), ['date', 'equipment', 'description', 'family', 'service', 'type', 'meter', 'target', 'unit', 'status']],
     equipos: ['Equipos', rows('equipment'), ['code', 'description', 'family', 'status']],
     reportes: ['KPI', aggregateByEquipment(rows('kpi')), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr', 'cuts']]
   };

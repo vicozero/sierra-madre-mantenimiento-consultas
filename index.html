@@ -69,7 +69,7 @@
 
     <section class="notice" id="public-notice" hidden>
       <span class="notice-icon">i</span>
-      <div><b>No hay conexión con el último corte publicado</b><p>Puedes consultar un paquete JSON local. La información se procesa en este navegador y no se carga en GitHub.</p></div>
+      <div><b id="connection-error-title">No hay conexión con el último corte publicado</b><p id="connection-error-detail">Puedes consultar un paquete JSON local. La información se procesa en este navegador y no se carga en GitHub.</p></div>
       <button class="button button-outline" id="load-data">Abrir paquete</button>
       <input id="file-input" type="file" accept=".json,application/json" hidden>
     </section>
@@ -98,7 +98,7 @@
       <span id="report-period">Esperando el primer corte del programa.</span>
       <span class="data-tag" id="data-tag">SIN DATOS</span>
       <div>
-        <button class="button button-outline" id="export-excel">⇩ Exportar Excel</button>
+        <button class="button button-outline" id="export-excel">⇩ CSV para Excel</button>
         <button class="button button-primary" id="export-pdf">▣ Generar PDF</button>
       </div>
     </section>
@@ -152,6 +152,10 @@
         <article class="panel top-panel">
           <div class="panel-head"><div><h3>Top equipos por horas operadas</h3><p>Mayor utilización en el periodo</p></div></div>
           <div id="top-chart" class="comparison-chart"></div>
+        </article>
+        <article class="panel shift-panel">
+          <div class="panel-head"><div><h3>Actividad por turno</h3><p>Horas y paros registrados en bitácora</p></div></div>
+          <div id="shift-comparison" class="shift-comparison"></div>
         </article>
       </div>
       <article class="panel summary-panel">
