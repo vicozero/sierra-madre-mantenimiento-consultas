@@ -7,6 +7,9 @@ const REPORT_BRAND = 'SIERRA MADRE';
 const REPORT_UNIT = 'MINA LA GUITARRA';
 const PERIOD_LABELS = { mensual: 'Mensual', semanal: 'Semanal', diario: 'Diario' };
 let reportPeriod = null;
+let calendarAnchor = new Date();
+let calendarMode = 'month';
+let calendarListMode = false;
 
 const VIEWS = {
   inicio: { label: 'Resumen KPI', title: 'Información del programa', subtitle: 'KPI, bitácora y calendario de servicio en una sola página.' },
@@ -113,6 +116,112 @@ function rows(section) {
     if (row.date && end && row.date.slice(0, 10) > end) return false;
     return true;
   });
+}
+
+function calendarRowsForView() {
+  const family = $('calendar-family').value;
+  const equipment = $('calendar-equipment').value;
+  const status = $('calendar-status').value;
+  const type = $('calendar-type').value;
+  const query = $('calendar-search').value.trim().toLocaleLowerCase('es-MX');
+  return rows('calendar').filter(row => {
+    if (family && row.family !== family) return false;
+    if (equipment && row.equipment !== equipment) return false;
+    if (status && normStatus(row.status) !== status) return false;
+    if (type && String(row.type || '') !== type) return false;
+    if (query && !Object.values(row).join(' ').toLocaleLowerCase('es-MX').includes(query)) return false;
+    return true;
+  });
+}
+
+function calendarStatusKey(value) {
+  const status = normStatus(value);
+  if (/complet|ejecut|realiz/.test(status)) return 'done';
+  if (/venc|atras/.test(status)) return 'overdue';
+  if (/urgente|crit/.test(status)) return 'urgent';
+  if (/cancel/.test(status)) return 'cancelled';
+  if (/proxim/.test(status)) return 'upcoming';
+  return 'planned';
+}
+
+function dateAtNoon(value) {
+  const date = new Date(`${String(value || '').slice(0, 10)}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function calendarTitle(date, options = { month: 'long', year: 'numeric' }) {
+  return new Intl.DateTimeFormat('es-MX', options).format(date).replace(/^./, letter => letter.toLocaleUpperCase('es-MX'));
+}
+
+function calendarItem(row) {
+  const statusKey = calendarStatusKey(row.status);
+  const kind = statusKey === 'done' ? 'done' : statusKey === 'overdue' || statusKey === 'urgent' ? 'urgent' : 'planned';
+  const label = row.service || row.type || row.description || 'Servicio';
+  const detail = row.equipment || 'Equipo sin código';
+  const target = num(row.target);
+  const meter = num(row.meter);
+  const more = [target === null ? '' : `Objetivo ${fmt(target)} ${row.unit || ''}`, meter === null ? '' : `Medidor ${fmt(meter)} ${row.unit || ''}`, row.status || ''].filter(Boolean).join(' · ');
+  return `<div class="service-event ${kind}" title="${esc(`${label} · ${detail}${more ? ` · ${more}` : ''}`)}"><span class="service-event-title">${esc(label)}</span><span class="service-event-equipment">${esc(detail)}</span></div>`;
+}
+
+function calendarPeriodRows(list) {
+  const y = calendarAnchor.getFullYear(), m = calendarAnchor.getMonth();
+  return list.filter(row => { const date = dateAtNoon(row.date); return date && date.getFullYear() === y && date.getMonth() === m; });
+}
+
+function renderCalendar(list) {
+  $('calendar-month-title').textContent = calendarTitle(calendarAnchor);
+  $('calendar-heading-title').textContent = calendarMode === 'month' ? calendarTitle(calendarAnchor) : calendarMode === 'week' ? `Semana del ${calendarTitle(weekStart(calendarAnchor), { day: 'numeric', month: 'short' })}` : calendarTitle(calendarAnchor, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('calendar-summary-period').textContent = calendarTitle(calendarAnchor);
+  const monthRows = calendarPeriodRows(list);
+  const done = monthRows.filter(row => calendarStatusKey(row.status) === 'done').length;
+  const overdue = monthRows.filter(row => ['overdue', 'urgent'].includes(calendarStatusKey(row.status))).length;
+  const planned = monthRows.filter(row => !['done', 'cancelled'].includes(calendarStatusKey(row.status))).length;
+  $('calendar-summary-cards').innerHTML = [
+    ['✓', done, 'Completados', 'done'], ['◷', planned, 'Programados', 'planned'], ['!', overdue, 'Vencidos / urgentes', 'urgent'], ['▦', monthRows.length, 'Servicios del mes', 'total']
+  ].map(([icon, value, label, kind]) => `<div class="calendar-summary-card ${kind}"><span>${icon}</span><div><b>${value}</b><small>${label}</small></div></div>`).join('');
+
+  const statuses = new Map();
+  monthRows.forEach(row => { const label = String(row.status || 'Sin estado'); const key = calendarStatusKey(label); statuses.set(`${key}|${label}`, { key, label, count: (statuses.get(`${key}|${label}`)?.count || 0) + 1 }); });
+  $('calendar-legend').innerHTML = statuses.size ? [...statuses.values()].map(item => `<div><i class="legend-dot ${item.key}"></i><span>${esc(item.label)}</span><b>${item.count}</b></div>`).join('') : '<div class="calendar-empty-note">Sin estados en este mes.</div>';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const upcoming = list.filter(row => { const date = dateAtNoon(row.date); return date && date >= today && calendarStatusKey(row.status) !== 'cancelled'; }).sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(0, 5);
+  $('calendar-upcoming-count').textContent = upcoming.length ? `Ver ${upcoming.length}` : '';
+  $('calendar-upcoming').innerHTML = upcoming.length ? upcoming.map(row => `<div class="upcoming-item"><time>${esc(new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short' }).format(dateAtNoon(row.date)))}</time><div><b>${esc(row.service || row.type || 'Servicio')}</b><span>${esc(row.equipment || '—')} · ${esc(row.description || row.family || '')}</span></div><i class="legend-dot ${calendarStatusKey(row.status)}"></i></div>`).join('') : '<div class="calendar-empty-note">No hay próximos servicios publicados.</div>';
+
+  const days = calendarDates();
+  const visible = list.filter(row => { const date = String(row.date || '').slice(0, 10); return days.some(day => isoDate(day) === date); });
+  $('calendar-grid').innerHTML = days.map(date => {
+    const dayRows = visible.filter(row => String(row.date).slice(0, 10) === isoDate(date));
+    const inMonth = date.getMonth() === calendarAnchor.getMonth();
+    const cells = dayRows.slice(0, calendarMode === 'day' ? 8 : 2).map(calendarItem).join('');
+    const more = dayRows.length > (calendarMode === 'day' ? 8 : 2) ? `<span class="calendar-more">+${dayRows.length - (calendarMode === 'day' ? 8 : 2)} más</span>` : '';
+    return `<div class="calendar-day ${inMonth ? '' : 'outside'} ${date.toDateString() === new Date().toDateString() ? 'today' : ''}"><b class="calendar-date">${date.getDate()}</b>${cells}${more || (!dayRows.length ? '<span class="calendar-no-service">Sin servicios</span>' : '')}</div>`;
+  }).join('');
+  $('calendar-grid').classList.toggle('week-mode', calendarMode === 'week');
+  $('calendar-grid').classList.toggle('day-mode', calendarMode === 'day');
+  $('calendar-grid').hidden = calendarListMode;
+  $('calendar-list').hidden = !calendarListMode;
+  $('calendar-list-toggle').textContent = calendarListMode ? '▦ Ver calendario' : '☷ Ver en lista';
+  if (calendarListMode) {
+    $('calendar-list').innerHTML = visible.length ? `<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Servicio</th><th>Tipo</th><th>Medidor</th><th>Objetivo</th><th>Estado</th></tr></thead><tbody>${visible.sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(row=>`<tr><td>${formatDate(row.date)}</td><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${esc(row.service)}</td><td>${esc(row.type)}</td><td>${fmt(row.meter)} ${esc(row.unit)}</td><td>${fmt(row.target)} ${esc(row.unit)}</td><td>${badge(row.status)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Sin servicios en este periodo.</div>';
+  }
+  $('calendar-count').textContent = `${monthRows.length} servicios en el mes · ${list.length} en el periodo`;
+  document.querySelectorAll('[data-calendar-view]').forEach(button => button.classList.toggle('active', button.dataset.calendarView === calendarMode));
+}
+
+function weekStart(date) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  return start;
+}
+
+function calendarDates() {
+  if (calendarMode === 'day') return [new Date(calendarAnchor.getFullYear(), calendarAnchor.getMonth(), calendarAnchor.getDate())];
+  if (calendarMode === 'week') return Array.from({ length: 7 }, (_, i) => { const date = weekStart(calendarAnchor); date.setDate(date.getDate() + i); return date; });
+  const first = new Date(calendarAnchor.getFullYear(), calendarAnchor.getMonth(), 1);
+  const start = weekStart(first);
+  return Array.from({ length: 42 }, (_, i) => { const date = new Date(start); date.setDate(start.getDate() + i); return date; });
 }
 
 function setRows(id, list, columnCount, makeRow) {
@@ -843,6 +952,7 @@ function render() {
   setRows('kpi-table', kpiByEquipment, 9, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0" title="${row.cuts} corte(s) KPI en el periodo"><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${fmt(row.availability)}%</td><td>${fmt(row.utilization)}%</td><td>${fmt(row.worked_hours)}</td><td>${fmt(row.mp_hours)}</td><td>${fmt(row.mc_hours)}</td><td>${fmt(row.stops, 0)}</td><td>${badge(row.status)}</td></tr>`);
   setRows('bitacora-table', bitacoraRows, 12, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0"><td>${formatDate(row.date)}</td><td><b>${esc(row.equipment)}</b></td><td>${esc(row.family)}</td><td>${esc(row.shift)}</td><td>${esc(row.component)}</td><td>${fmt(row.hi)}</td><td>${fmt(row.hf)}</td><td>${fmt(row.worked_hours)}</td><td>${fmt(row.mp_hours)}</td><td>${fmt(row.mc_hours)}</td><td>${fmt(row.stops, 0)}</td><td>${badge(row.status)}</td></tr>`);
   setRows('calendar-table', calendarByEquipment, 9, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0" title="Servicios en el periodo: ${esc((row.dates || []).map(formatDate).join(' · '))}"><td>${formatDate(row.date)}</td><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${esc(row.service)}</td><td>${esc(row.type)}</td><td>${fmt(row.meter)} ${esc(row.unit)}</td><td>${fmt(row.target)} ${esc(row.unit)}</td><td>${badge(row.status)}</td><td>${row.services}</td></tr>`);
+  renderCalendar(calendarRowsForView());
   setRows('equipment-table', equipmentRows, 4, row => `<tr data-equipment="${esc(row.code)}" tabindex="0"><td><b>${esc(row.code)}</b></td><td>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${badge(row.status)}</td></tr>`);
   $('bitacora-count').textContent = `${bitacoraRows.length} registros`;
   $('calendar-count').textContent = `${calendarByEquipment.length} equipos · ${calendarRows.length} servicios`;
@@ -895,6 +1005,11 @@ function fillFilters() {
 
   const types = [...new Set(data.calendar.map(row => row.type).filter(Boolean))].sort(sort);
   fillSelect('type-filter', types.map(type => [type, type]), 'Todos los tipos');
+  fillSelect('calendar-family', families.map(family => [family, family]), 'Todas las familias');
+  fillSelect('calendar-equipment', [...new Set(data.calendar.map(row => row.equipment).filter(Boolean))].sort(sort).map(code => [code, code]), 'Todos los equipos');
+  const calendarStatuses = [...new Map(data.calendar.map(row => [normStatus(row.status), String(row.status || '').trim()]).filter(([key, label]) => key && label)).entries()].sort((a,b)=>sort(a[1],b[1]));
+  fillSelect('calendar-status', calendarStatuses, 'Todos los estados');
+  fillSelect('calendar-type', types.map(type => [type, type]), 'Todos los tipos');
 }
 
 async function loadLocal(file) {
@@ -977,6 +1092,15 @@ function selectView(element) {
   const next = element.dataset.view;
   if (!VIEWS[next]) return;
   view = next;
+  document.body.classList.toggle('calendar-open', view === 'calendario');
+  if (view === 'calendario' && $('date-end').value) {
+    $('search').value = '';
+    ['family-filter','equipment-filter','shift-filter','status-filter','condition-filter','type-filter'].forEach(id => { $(id).value = ''; });
+    clearPeriodSelection();
+    const endDate = dateAtNoon($('date-end').value);
+    if (endDate) calendarAnchor = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    render();
+  }
   document.querySelectorAll('.view').forEach(section => section.classList.toggle('active-view', section.id === `view-${view}`));
   document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view));
   $('crumb-current').textContent = VIEWS[view].label;
@@ -1017,6 +1141,27 @@ $('report-pptx').addEventListener('click', generatePptx);
     window.print();
     setTimeout(() => document.body.classList.remove('printing'), 1000);
   });
+['calendar-family', 'calendar-equipment', 'calendar-status', 'calendar-type'].forEach(id => $(id).addEventListener('change', () => renderCalendar(calendarRowsForView())));
+$('calendar-search').addEventListener('input', () => renderCalendar(calendarRowsForView()));
+$('calendar-list-toggle').addEventListener('click', () => { calendarListMode = !calendarListMode; renderCalendar(calendarRowsForView()); });
+$('calendar-refresh').addEventListener('click', refreshData);
+$('calendar-prev').addEventListener('click', () => moveCalendar(-1));
+$('calendar-next').addEventListener('click', () => moveCalendar(1));
+$('calendar-today').addEventListener('click', () => { const today = new Date(); calendarAnchor = new Date(today.getFullYear(), today.getMonth(), today.getDate()); setCalendarPeriod(); });
+document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEventListener('click', () => { calendarMode = button.dataset.calendarView; renderCalendar(calendarRowsForView()); }));
+function moveCalendar(direction) {
+  if (calendarMode === 'week') calendarAnchor.setDate(calendarAnchor.getDate() + direction * 7);
+  else if (calendarMode === 'day') calendarAnchor.setDate(calendarAnchor.getDate() + direction);
+  else calendarAnchor = new Date(calendarAnchor.getFullYear(), calendarAnchor.getMonth() + direction, 1);
+  setCalendarPeriod();
+}
+function setCalendarPeriod() {
+  let start, end;
+  if (calendarMode === 'day') start = end = isoDate(calendarAnchor);
+  else if (calendarMode === 'week') { const first = weekStart(calendarAnchor); const last = new Date(first); last.setDate(last.getDate() + 6); start = isoDate(first); end = isoDate(last); }
+  else { start = isoDate(new Date(calendarAnchor.getFullYear(), calendarAnchor.getMonth(), 1)); end = isoDate(new Date(calendarAnchor.getFullYear(), calendarAnchor.getMonth() + 1, 0)); }
+  $('date-start').value = start; $('date-end').value = end; clearPeriodSelection(); render();
+}
 ['date-start', 'date-end'].forEach(id => $(id).addEventListener('change', () => {
   if (!reportPeriod) return;
   clearPeriodSelection();

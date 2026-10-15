@@ -170,28 +170,31 @@
     </section>
 
     <section id="view-calendario" class="view">
-      <div class="section-heading"><div><div class="eyebrow">PREVENTIVOS</div><h2>Calendario de servicio</h2><p>Servicios programados, proyectados y completados dentro del periodo. Un registro por equipo.</p></div><span class="count-pill" id="calendar-count">0 servicios</span></div>
-      <div class="calendar-feature">
-        <div class="calendar-feature-head">
-          <div class="calendar-feature-info">
-            <span class="report-icon">▤</span>
-            <div><h3>Generar PDF del calendario</h3><p>Descarga un PDF con el almanaque del periodo seleccionado (igual que el ejemplo adjunto).</p></div>
-          </div>
-          <div class="period-picker">
-            <span>Periodo</span>
-            <div class="period-toggle" id="period-toggle-cal" role="group" aria-label="Periodo del calendario">
-              <button type="button" data-period="mensual">Mensual</button>
-              <button type="button" data-period="semanal">Semanal</button>
-              <button type="button" data-period="diario">Diario</button>
-            </div>
-          </div>
-        </div>
-        <div class="calendar-feature-foot">
-          <button class="button button-primary" id="report-pdf-calendario"><span>▤</span> Generar PDF</button>
-          <span id="report-pdf-range">—</span>
-        </div>
+      <div class="calendar-toolbar panel">
+        <label class="calendar-search"><span>⌕</span><input id="calendar-search" type="search" placeholder="Buscar equipo, servicio o folio..."></label>
+        <label class="calendar-filter"><span>Familia</span><select id="calendar-family"><option value="">Todas las familias</option></select></label>
+        <label class="calendar-filter"><span>Equipo</span><select id="calendar-equipment"><option value="">Todos los equipos</option></select></label>
+        <label class="calendar-filter"><span>Estado</span><select id="calendar-status"><option value="">Todos los estados</option></select></label>
+        <label class="calendar-filter"><span>Tipo de servicio</span><select id="calendar-type"><option value="">Todos los tipos</option></select></label>
+        <div class="calendar-month-nav"><button id="calendar-prev" aria-label="Mes anterior">‹</button><b id="calendar-month-title">—</b><button id="calendar-next" aria-label="Mes siguiente">›</button><button id="calendar-today">Hoy</button></div>
+        <div class="calendar-actions"><button class="button" id="calendar-refresh">↻ Actualizar</button><button class="button button-primary" id="calendar-list-toggle">☷ Ver en lista</button><button class="button" id="report-pdf-calendario">▤ PDF</button></div>
       </div>
-      <article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Servicio / gama</th><th>Tipo</th><th>Medidor</th><th>Objetivo</th><th>Estado</th><th>Servicios</th></tr></thead><tbody id="calendar-table"></tbody></table></div></article>
+      <div class="calendar-layout">
+        <article class="panel calendar-main-panel">
+          <div class="calendar-main-head"><div><div class="eyebrow">SERVICIOS PROGRAMADOS</div><h2 id="calendar-heading-title">—</h2><span id="calendar-count">0 servicios</span></div><div class="calendar-view-switch" role="group" aria-label="Vista del calendario"><button data-calendar-view="month" class="active">Mes</button><button data-calendar-view="week">Semana</button><button data-calendar-view="day">Día</button></div></div>
+          <div class="calendar-weekdays"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div>
+          <div id="calendar-grid" class="service-calendar-grid"></div>
+          <div id="calendar-list" class="service-calendar-list" hidden></div>
+        </article>
+        <aside class="panel calendar-aside">
+          <h3>Resumen del mes</h3><p class="calendar-aside-period" id="calendar-summary-period">—</p>
+          <div id="calendar-summary-cards" class="calendar-summary-cards"></div>
+          <div class="calendar-aside-section"><h4>Estados de servicio</h4><div id="calendar-legend" class="calendar-legend"></div></div>
+          <div class="calendar-aside-section"><div class="calendar-upcoming-head"><h4>Próximos servicios</h4><span id="calendar-upcoming-count"></span></div><div id="calendar-upcoming" class="calendar-upcoming"></div></div>
+          <div class="calendar-aside-foot">Los datos se actualizan desde el programa y respetan los filtros seleccionados.</div>
+        </aside>
+      </div>
+      <div hidden><table><tbody id="calendar-table"></tbody></table></div>
     </section>
 
     <section id="view-equipos" class="view">
