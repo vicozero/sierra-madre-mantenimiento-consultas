@@ -339,7 +339,7 @@ function isoDate(date) {
 }
 
 function reportAnchor() {
-  const reference = data.meta?.periodEnd || $('date-end').value || data.meta?.updatedAt;
+  const reference = $('report-anchor-date')?.value || data.meta?.periodEnd || $('date-end').value || data.meta?.updatedAt;
   const parsed = reference ? new Date(`${String(reference).slice(0, 10)}T12:00:00`) : new Date();
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
@@ -393,6 +393,7 @@ function periodKindFromRange(start, end) {
 function applyPeriod(kind) {
   if (!PERIOD_LABELS[kind]) return;
   reportPeriod = kind;
+  if ($('report-anchor-date') && !$('report-anchor-date').value) $('report-anchor-date').value = isoDate(reportAnchor());
   const { start, end } = periodRange(kind);
   $('date-start').value = start;
   $('date-end').value = end;
@@ -418,27 +419,36 @@ function distinctCount(list, key) {
   return new Set(list.map(row => row[key]).filter(Boolean)).size;
 }
 
-function familyIndicators(kpiRows) {
+function familyIndicators(kpiRows, bitacoraRows = []) {
   const groups = new Map();
   for (const row of kpiRows) {
     const family = familyLabel(row.family);
-    if (!groups.has(family)) groups.set(family, []);
-    groups.get(family).push(row);
+    if (!groups.has(family)) groups.set(family, { kpi: [], logs: [] });
+    groups.get(family).kpi.push(row);
   }
-  return [...groups].map(([family, items]) => ({
+  for (const row of bitacoraRows) {
+    const family = familyLabel(row.family);
+    if (!groups.has(family)) groups.set(family, { kpi: [], logs: [] });
+    groups.get(family).logs.push(row);
+  }
+  return [...groups].map(([family, sets]) => {
+    const items = [...sets.kpi, ...sets.logs];
+    return {
     family,
-    rows: items,
+    rows: sets.kpi,
+    logRows: sets.logs,
     equipment: distinctCount(items, 'equipment'),
-    cuts: items.length,
-    availability: average(items, 'availability'),
-    utilization: average(items, 'utilization'),
-    worked: sumField(items, 'worked_hours'),
-    mp: sumField(items, 'mp_hours'),
-    mc: sumField(items, 'mc_hours'),
-    stops: sumField(items, 'stops'),
-    tmef: average(items.filter(row => (num(row.tmef) || 0) > 0), 'tmef'),
-    tmpr: average(items.filter(row => (num(row.tmpr) || 0) > 0), 'tmpr')
-  })).sort((a, b) => b.worked - a.worked);
+    cuts: sets.kpi.length,
+    availability: average(sets.kpi, 'availability'),
+    utilization: average(sets.kpi, 'utilization'),
+    worked: sumField(sets.logs, 'worked_hours'),
+    mp: sumField(sets.logs, 'mp_hours'),
+    mc: sumField(sets.logs, 'mc_hours'),
+    stops: sumField(sets.logs, 'stops'),
+    tmef: average(sets.kpi.filter(row => (num(row.tmef) || 0) > 0), 'tmef'),
+    tmpr: average(sets.kpi.filter(row => (num(row.tmpr) || 0) > 0), 'tmpr')
+  };
+  }).sort((a, b) => b.worked - a.worked);
 }
 
 function globalIndicators(kpiRows, bitacoraRows, calendarRows) {
@@ -449,10 +459,10 @@ function globalIndicators(kpiRows, bitacoraRows, calendarRows) {
     utilization: average(kpiRows, 'utilization'),
     tmef: average(kpiRows.filter(row => (num(row.tmef) || 0) > 0), 'tmef'),
     tmpr: average(kpiRows.filter(row => (num(row.tmpr) || 0) > 0), 'tmpr'),
-    worked: sumField(kpiRows, 'worked_hours'),
-    mp: sumField(kpiRows, 'mp_hours'),
-    mc: sumField(kpiRows, 'mc_hours'),
-    stops: sumField(kpiRows, 'stops'),
+    worked: sumField(bitacoraRows, 'worked_hours'),
+    mp: sumField(bitacoraRows, 'mp_hours'),
+    mc: sumField(bitacoraRows, 'mc_hours'),
+    stops: sumField(bitacoraRows, 'stops'),
     kpiEquipment: distinctCount(kpiRows, 'equipment'),
     cuts: kpiRows.length,
     logs: bitacoraRows.length,
@@ -460,6 +470,30 @@ function globalIndicators(kpiRows, bitacoraRows, calendarRows) {
     completed,
     completion: scheduled ? completed / scheduled * 100 : null
   };
+}
+
+function reportEquipmentRows(kpiRows, bitacoraRows) {
+  const codes = new Set([...kpiRows, ...bitacoraRows].map(row => row.equipment).filter(Boolean));
+  return [...codes].map(equipment => {
+    const kpi = kpiRows.filter(row => row.equipment === equipment);
+    const logs = bitacoraRows.filter(row => row.equipment === equipment);
+    const latest = [...logs, ...kpi].sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).at(-1) || {};
+    const detail = [...logs, ...kpi].find(row => row.description || row.family) || latest;
+    return {
+      equipment,
+      description: detail.description || '',
+      family: familyLabel(detail.family),
+      status: latest.status || '—',
+      availability: average(kpi, 'availability'),
+      utilization: average(kpi, 'utilization'),
+      worked_hours: sumField(logs, 'worked_hours'),
+      mp_hours: sumField(logs, 'mp_hours'),
+      mc_hours: sumField(logs, 'mc_hours'),
+      stops: sumField(logs, 'stops'),
+      tmef: average(kpi.filter(row => (num(row.tmef) || 0) > 0), 'tmef'),
+      tmpr: average(kpi.filter(row => (num(row.tmpr) || 0) > 0), 'tmpr')
+    };
+  });
 }
 
 const pctText = value => value === null || value === undefined ? '—' : `${fmt(value)}%`;
@@ -514,9 +548,9 @@ async function generatePptx() {
 
     const kpiRows = rows('kpi');
     const bitacoraRows = rows('bitacora');
-    const calendarRows = view === 'calendario' ? calendarRowsForView() : rows('calendar');
+    const calendarRows = rows('calendar');
     const equipmentRows = rows('equipment');
-    const families = familyIndicators(kpiRows);
+    const families = familyIndicators(kpiRows, bitacoraRows);
     const global = globalIndicators(kpiRows, bitacoraRows, calendarRows);
 
     const NAVY = '092744', BLUE = '1476df', CYAN = '16b5e5', INK = '17395d', MUTED = '6d829b';
@@ -566,6 +600,7 @@ async function generatePptx() {
       { label: 'Servicios preventivos', value: String(global.services), color: '0ba6a7' },
       { label: 'Cumplimiento preventivo', value: pctText(global.completion), color: '12a66a' }
     ], { x: 0.6, y: 1.7, w: 12.1, cols: 4 });
+    slide.addText('Disponibilidad, utilización, TMEF y TMPR muestran el promedio de los cortes KPI incluidos. Horas, MP, MC y paros se suman de bitácora dentro del periodo; si no hay corte KPI, el indicador se marca como —.', { x: 0.65, y: 6.62, w: 12.0, h: 0.28, fontSize: 8, color: MUTED, breakLine: false, fit: 'shrink' });
     addFooter(slide);
 
     for (const family of families) {
@@ -580,7 +615,7 @@ async function generatePptx() {
         { label: 'Paros', value: fmt(family.stops, 0), color: 'b43b45' },
         { label: 'TMEF / TMPR (h)', value: `${fmt(family.tmef)} / ${fmt(family.tmpr)}`, color: '0ba6a7' }
       ], { x: 0.55, y: 1.45, w: 12.2, cols: 3, cardH: 0.95 });
-      const items = aggregateByEquipment(family.rows);
+      const items = reportEquipmentRows(family.rows, family.logRows);
       const table = [['Equipo', 'Descripción', 'Dispon.', 'Utiliz.', 'Horas', 'MP', 'MC', 'Paros', 'Estado'].map(pptxHeader)];
       for (const item of items) {
         table.push([
@@ -1086,6 +1121,7 @@ async function loadLocal(file) {
     data = acceptPackage(JSON.parse(await file.text()));
     if (data.meta.periodStart) $('date-start').value = data.meta.periodStart;
     if (data.meta.periodEnd) $('date-end').value = data.meta.periodEnd;
+    if (data.meta.periodEnd) $('report-anchor-date').value = data.meta.periodEnd;
     fillFilters();
     $('public-notice').hidden = true;
     setConnection(true, 'Paquete local listo');
@@ -1115,6 +1151,7 @@ async function refreshData() {
     data = acceptPackage(await response.json());
     if (data.meta.periodStart) $('date-start').value = data.meta.periodStart;
     if (data.meta.periodEnd) $('date-end').value = data.meta.periodEnd;
+    if (data.meta.periodEnd) $('report-anchor-date').value = data.meta.periodEnd;
     fillFilters();
     $('public-notice').hidden = true;
     setConnection(true, `${data.meta?.periodStart || '—'} a ${data.meta?.periodEnd || '—'}`);
@@ -1272,6 +1309,13 @@ $('file-input').addEventListener('change', event => loadLocal(event.target.files
 $('report-excel').addEventListener('click', generateExcelReport);
 ['export-pdf', 'quick-pdf', 'report-pdf'].forEach(id => $(id).addEventListener('click', printReport));
 document.querySelectorAll('#period-toggle [data-period]').forEach(button => button.addEventListener('click', () => applyPeriod(button.dataset.period)));
+$('report-anchor-date').addEventListener('change', () => {
+  if (reportPeriod) applyPeriod(reportPeriod);
+  else {
+    const anchor = $('report-anchor-date').value;
+    if (anchor) $('report-pptx-range').textContent = `Fecha elegida: ${formatDayLong(anchor)} · elige Día, Semana o Mes para fijar el intervalo.`;
+  }
+});
 $('report-pptx').addEventListener('click', generatePptx);
   $('report-pdf-calendario').addEventListener('click', () => {
     const start = $('date-start').value;
