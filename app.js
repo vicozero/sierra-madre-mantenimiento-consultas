@@ -1,5 +1,5 @@
 const API_URL = 'https://sierra-madre-consulta-api.feywren128.chatgpt.site/api/portal';
-const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [], work_orders: [] };
+const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [] };
 const PALETTE = ['#1476df', '#31ad72', '#f6be25', '#f28a27', '#8052e8', '#0ba6a7', '#75869a'];
 let data = structuredClone(EMPTY);
 let view = 'inicio';
@@ -12,7 +12,6 @@ let calendarMode = 'month';
 let calendarListMode = false;
 
 const VIEWS = {
-  ordenes: { label: 'Órdenes y evidencias', title: 'Órdenes de trabajo y evidencias', subtitle: 'Consulta cada orden y abre sus imágenes y PDF publicados desde Mantenimiento.' },
   inicio: { label: 'Resumen KPI', title: 'Información del programa', subtitle: 'KPI, bitácora y calendario de servicio en una sola página.' },
   bitacora: { label: 'Bitácora', title: 'Bitácora de equipos', subtitle: 'Lecturas de medidor, horas y estado por fecha y turno.' },
   calendario: { label: 'Calendario de servicio', title: 'Calendario de servicio', subtitle: 'Servicios programados, proyectados y completados dentro del periodo.' },
@@ -77,13 +76,15 @@ function normalize(payload) {
   }
   // La sección de Diesel es opcional: los paquetes anteriores pueden no incluirla.
   payload.diesel = Array.isArray(payload.diesel) ? payload.diesel.filter(row => row && typeof row === 'object' && !Array.isArray(row)) : [];
-  payload.work_orders = Array.isArray(payload.work_orders) ? payload.work_orders.filter(row => row && typeof row === 'object' && !Array.isArray(row)) : [];
+  // El portal público no procesa órdenes ni evidencias. Esos expedientes
+  // permanecen en Mantenimiento hasta contar con acceso privado por usuario.
+  payload.work_orders = [];
   return payload;
 }
 
 function acceptPackage(candidate, current = data) {
   const next = normalize(candidate);
-  const sections = ['equipment', 'kpi', 'bitacora', 'calendar', 'diesel', 'work_orders'];
+  const sections = ['equipment', 'kpi', 'bitacora', 'calendar', 'diesel'];
   const emptied = sections.filter(section => current[section]?.length > 0 && next[section].length === 0);
   if (emptied.length) throw new Error(`El paquete llegó sin registros de ${emptied.join(', ')}. Se conserva el último corte válido.`);
   return next;
@@ -1025,6 +1026,7 @@ function ordersForEquipment(code) {
   return list.length ? `<div class="order-links">${list.map(r=>`<button type="button" class="button button-outline" data-order="${esc(r.id)}">${esc(r.number)} · ${formatDate(r.date)} · ${(r.evidence||[]).length} evidencias</button>`).join('')}</div>` : '<p>Sin órdenes publicadas para este equipo.</p>';
 }
 function renderOrders() {
+  if (!$('orders-table')) return;
   const list=rows('work_orders');
   setRows('orders-table',list,7,r=>`<tr tabindex="0" data-order="${esc(r.id)}"><td><button class="text-link" data-order="${esc(r.id)}">${esc(r.number)}</button></td><td>${formatDate(r.date)}</td><td>${esc(r.equipment)}<br><small>${esc(r.description)}</small></td><td>${esc(r.type)}</td><td>${esc(r.correction||r.instructions||r.failure||'Sin descripción')}</td><td>${badge(r.status)}</td><td>${(r.evidence||[]).length}</td></tr>`);
   $('orders-count').textContent=`${list.length} órdenes · ${list.reduce((n,r)=>n+(r.evidence||[]).length,0)} evidencias`;
