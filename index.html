@@ -25,6 +25,7 @@
       <button class="nav-item" data-view="bitacora"><span>▤</span> Bitácora</button>
       <button class="nav-item" data-view="calendario"><span>▦</span> Calendario de servicio</button>
       <button class="nav-item" data-view="equipos"><span>▣</span> Equipos</button>
+      <button class="nav-item" data-view="ordenes"><span>▤</span> Órdenes y evidencias</button>
       <button class="nav-item" data-view="reportes"><span>▧</span> Reportes</button>
       <button class="nav-item" data-view="diesel"><span>⛽</span> Diesel</button>
     </nav>
@@ -208,8 +209,29 @@
       <article class="panel"><div class="table-wrap"><table><thead><tr><th>N.º económico</th><th>Descripción</th><th>Familia</th><th>Estado</th></tr></thead><tbody id="equipment-table"></tbody></table></div></article>
     </section>
 
+    <section id="view-ordenes" class="view">
+      <article class="panel"><div class="panel-head"><div><h3>Órdenes publicadas</h3><p>Abre una orden para consultar el trabajo y sus evidencias. Los filtros superiores permiten buscar folio, equipo, fecha y estado.</p></div><b id="orders-count">0 órdenes</b></div>
+        <div class="table-wrap"><table><thead><tr><th>Folio</th><th>Fecha</th><th>Equipo</th><th>Tipo</th><th>Trabajo</th><th>Estado</th><th>Evidencias</th></tr></thead><tbody id="orders-table"></tbody></table></div>
+      </article>
+    </section>
     <section id="view-diesel" class="view">
-      <div class="section-heading"><div><div class="eyebrow">COMBUSTIBLE</div><h2>Consumo de Diesel</h2><p>Visualiza el consumo y el rendimiento del combustible por turno, día, semana y mes.</p></div><span class="count-pill" id="diesel-count">0 registros</span></div>
+      <div class="section-heading"><div><div class="eyebrow">COMBUSTIBLE</div><h2>Consumo de Diesel</h2><p>Consulta los litros registrados por turno, día, semana o mes.</p></div><span class="count-pill" id="diesel-count">0 capturas</span></div>
+      <article class="panel diesel-import">
+        <div class="diesel-import-head">
+          <div><h3>Fuente de datos</h3><p id="diesel-source-status">El paquete web todavía no incluye Diesel del programa. Selecciona el Excel que importas en Mantenimiento.exe para consultarlo aquí.</p></div>
+          <div class="diesel-import-actions"><button class="button button-primary" id="diesel-open-file">▧ Seleccionar Excel</button><select id="diesel-sheet" aria-label="Hoja del libro Diesel" disabled><option>Selecciona una hoja</option></select><button class="button" id="diesel-load-sheet" disabled>Cargar hoja</button><input id="diesel-file-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></div>
+        </div>
+        <small>El archivo se procesa en este navegador. No se envía al portal ni se guarda en GitHub. Este libro tiene hojas históricas repetidas: consulta una hoja por vez para evitar duplicar consumos.</small>
+      </article>
+      <article class="panel diesel-filters">
+        <label class="filter-field"><span>Fecha de referencia</span><input id="diesel-anchor-date" type="date"></label>
+        <label class="filter-field"><span>Desde</span><input id="diesel-date-start" type="date"></label>
+        <label class="filter-field"><span>Hasta</span><input id="diesel-date-end" type="date"></label>
+        <label class="filter-field"><span>Categoría</span><select id="diesel-category-filter"><option value="">Todas</option></select></label>
+        <label class="filter-field"><span>Equipo</span><select id="diesel-equipment-filter"><option value="">Todos</option></select></label>
+        <label class="filter-field"><span>Turno</span><select id="diesel-shift-filter"><option value="">Todos</option><option value="1">Turno 1</option><option value="2">Turno 2</option><option value="3">Turno 3</option></select></label>
+        <button class="button button-outline" id="diesel-clear-filters">Limpiar</button>
+      </article>
       <div class="metrics" id="diesel-kpis"></div>
       <article class="panel diesel-feature">
         <div class="diesel-feature-head">
@@ -218,16 +240,16 @@
             <div><h3>Consumo de Diesel</h3><p>Agrupa los registros de combustible por turno, día, semana o mes.</p></div>
           </div>
           <div class="period-picker">
-            <span>Agrupar por</span>
-            <div class="period-toggle" id="period-toggle-diesel" role="group" aria-label="Agrupación del reporte de Diesel">
+            <span>Periodo del reporte</span>
+            <div class="period-toggle" id="period-toggle-diesel" role="group" aria-label="Periodo del reporte de Diesel">
               <button type="button" data-period="turno">Turno</button>
-              <button type="button" data-period="dia" class="active">Día</button>
+              <button type="button" data-period="dia">Día</button>
               <button type="button" data-period="semana">Semana</button>
-              <button type="button" data-period="mes">Mes</button>
+              <button type="button" data-period="mes" class="active">Mes</button>
             </div>
           </div>
         </div>
-        <div class="diesel-chart" id="diesel-chart"></div>
+        <div class="diesel-charts"><section><h4>Consumo por periodo</h4><div class="diesel-chart" id="diesel-chart"></div></section><section><h4>Consumo por categoría</h4><div class="diesel-chart" id="diesel-category-chart"></div></section></div>
         <div class="diesel-feature-foot">
           <button class="button button-primary" id="export-diesel-pdf"><span>▧</span> Descargar PDF</button>
           <button class="button button-outline" id="export-diesel-csv"><span>⇩</span> Exportar CSV</button>
@@ -236,8 +258,9 @@
       </article>
       <article class="panel">
         <div class="panel-head"><div><h3>Resumen del consumo</h3><p id="diesel-scope">—</p></div></div>
-        <div class="table-wrap"><table><thead><tr><th>Periodo</th><th>Equipos</th><th>Litros</th><th>Horas</th><th>Rendimiento (L/h)</th><th>Registros</th></tr></thead><tbody id="diesel-table"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Periodo</th><th>Equipos</th><th>Registros</th><th>Turno 1 (L)</th><th>Turno 2 (L)</th><th>Turno 3 (L)</th><th>Total (L)</th></tr></thead><tbody id="diesel-table"></tbody></table></div>
       </article>
+      <article class="panel diesel-detail-panel"><div class="panel-head"><div><h3>Consumo por equipo</h3><p>Detalle agregado según los filtros seleccionados.</p></div></div><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Categoría</th><th>Departamento</th><th>Horómetro más reciente</th><th>Turno 1 (L)</th><th>Turno 2 (L)</th><th>Turno 3 (L)</th><th>Total (L)</th><th>Registros</th></tr></thead><tbody id="diesel-equipment-table"></tbody></table></div></article>
     </section>
 
     <section id="view-reportes" class="view">
@@ -280,5 +303,12 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal" id="order-modal" hidden>
+    <div class="modal-backdrop" data-order-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="order-title">
+      <button class="modal-close" type="button" data-order-close aria-label="Cerrar orden">✕</button>
+      <div id="order-detail"></div>
+    </div>
+  </div>
 </body>
 </html>

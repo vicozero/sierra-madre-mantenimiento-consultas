@@ -1,5 +1,5 @@
 const API_URL = 'https://sierra-madre-consulta-api.feywren128.chatgpt.site/api/portal';
-const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [] };
+const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [], work_orders: [] };
 const PALETTE = ['#1476df', '#31ad72', '#f6be25', '#f28a27', '#8052e8', '#0ba6a7', '#75869a'];
 let data = structuredClone(EMPTY);
 let view = 'inicio';
@@ -12,12 +12,13 @@ let calendarMode = 'month';
 let calendarListMode = false;
 
 const VIEWS = {
+  ordenes: { label: 'Órdenes y evidencias', title: 'Órdenes de trabajo y evidencias', subtitle: 'Consulta cada orden y abre sus imágenes y PDF publicados desde Mantenimiento.' },
   inicio: { label: 'Resumen KPI', title: 'Información del programa', subtitle: 'KPI, bitácora y calendario de servicio en una sola página.' },
   bitacora: { label: 'Bitácora', title: 'Bitácora de equipos', subtitle: 'Lecturas de medidor, horas y estado por fecha y turno.' },
   calendario: { label: 'Calendario de servicio', title: 'Calendario de servicio', subtitle: 'Servicios programados, proyectados y completados dentro del periodo.' },
   equipos: { label: 'Equipos', title: 'Equipos', subtitle: 'Catálogo consultivo del programa.' },
   reportes: { label: 'Reportes', title: 'Reportes de mantenimiento', subtitle: 'Genera archivos con el periodo, familia y turno seleccionados.' },
-  diesel: { label: 'Diesel', title: 'Consumo de Diesel', subtitle: 'Consumo y costos de combustible por periodo y unidad.' }
+  diesel: { label: 'Diesel', title: 'Consumo de Diesel', subtitle: 'Consulta litros por turno, día, semana y mes.' }
 };
 
 const $ = id => document.getElementById(id);
@@ -76,12 +77,13 @@ function normalize(payload) {
   }
   // La sección de Diesel es opcional: los paquetes anteriores pueden no incluirla.
   payload.diesel = Array.isArray(payload.diesel) ? payload.diesel.filter(row => row && typeof row === 'object' && !Array.isArray(row)) : [];
+  payload.work_orders = Array.isArray(payload.work_orders) ? payload.work_orders.filter(row => row && typeof row === 'object' && !Array.isArray(row)) : [];
   return payload;
 }
 
 function acceptPackage(candidate, current = data) {
   const next = normalize(candidate);
-  const sections = ['equipment', 'kpi', 'bitacora', 'calendar'];
+  const sections = ['equipment', 'kpi', 'bitacora', 'calendar', 'diesel', 'work_orders'];
   const emptied = sections.filter(section => current[section]?.length > 0 && next[section].length === 0);
   if (emptied.length) throw new Error(`El paquete llegó sin registros de ${emptied.join(', ')}. Se conserva el último corte válido.`);
   return next;
@@ -1009,11 +1011,34 @@ function openEquipment(code) {
         <div class="detail-block-head"><h4>Servicios preventivos</h4><span>${services.length} servicio(s)</span></div>
         ${services.length ? `<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Servicio</th><th>Tipo</th><th>Objetivo</th><th>Estado</th></tr></thead><tbody>${services.map(row => `<tr><td>${formatDate(row.date)}</td><td>${esc(row.service)}</td><td>${esc(row.type)}</td><td>${fmt(row.target)} ${esc(row.unit)}</td><td>${badge(row.status)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Sin servicios registrados.</div>'}
       </article>
-    </div>`;
+    </div><article class="detail-block"><h4>Órdenes de trabajo y evidencias</h4>${ordersForEquipment(code)}</article>`;
   $('equipment-modal').hidden = false;
   document.body.classList.add('modal-open');
   $('equipment-modal').querySelector('.modal-close').focus();
 }
+
+function evidenceURL(file) {
+  return /^[a-f0-9]{64}$/.test(file.sha256 || '') ? `${API_URL}/evidence/${file.sha256}` : null;
+}
+function ordersForEquipment(code) {
+  const list=(data.work_orders||[]).filter(r=>r.equipment===code);
+  return list.length ? `<div class="order-links">${list.map(r=>`<button type="button" class="button button-outline" data-order="${esc(r.id)}">${esc(r.number)} · ${formatDate(r.date)} · ${(r.evidence||[]).length} evidencias</button>`).join('')}</div>` : '<p>Sin órdenes publicadas para este equipo.</p>';
+}
+function renderOrders() {
+  const list=rows('work_orders');
+  setRows('orders-table',list,7,r=>`<tr tabindex="0" data-order="${esc(r.id)}"><td><button class="text-link" data-order="${esc(r.id)}">${esc(r.number)}</button></td><td>${formatDate(r.date)}</td><td>${esc(r.equipment)}<br><small>${esc(r.description)}</small></td><td>${esc(r.type)}</td><td>${esc(r.correction||r.instructions||r.failure||'Sin descripción')}</td><td>${badge(r.status)}</td><td>${(r.evidence||[]).length}</td></tr>`);
+  $('orders-count').textContent=`${list.length} órdenes · ${list.reduce((n,r)=>n+(r.evidence||[]).length,0)} evidencias`;
+}
+function openOrder(id) {
+  const order=(data.work_orders||[]).find(r=>String(r.id)===String(id));
+  if(!order)return toast('Esta orden ya no está en el corte publicado. Actualiza la consulta.');
+  const files=Array.isArray(order.evidence)?order.evidence:[];
+  $('order-detail').innerHTML=`<header class="detail-head"><div><h2 id="order-title">${esc(order.number)}</h2><p>${esc(order.equipment)} · ${esc(order.description)} · ${formatDate(order.date)}</p>${badge(order.status)}</div></header><article class="detail-block"><h4>${esc(order.type)} · ${esc(order.priority)} · ${esc(order.component||'Sin componente')}</h4><h4>Trabajo solicitado</h4><p class="order-text">${esc(order.instructions||'Sin información registrada')}</p><h4>Falla reportada</h4><p class="order-text">${esc(order.failure||'Sin información registrada')}</p><h4>Trabajo realizado</h4><p class="order-text">${esc(order.correction||'Sin información registrada')}</p></article><article class="detail-block"><h4>Evidencias de la orden (${files.length})</h4><div class="evidence-grid">${files.map(file=>{const url=evidenceURL(file);return `<article class="evidence-card">${file.available&&url&&String(file.mime).startsWith('image/')?`<a href="${url}" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="${url}" alt="${esc(file.caption||file.name)}"></a>`:''}<b>${esc(file.name)}</b><p>${esc(file.caption||'Sin descripción adicional')}</p><small>${esc(file.mime)} · ${fmt((file.size||0)/1024,0)} KB</small><br>${file.available&&url?`<a class="button button-primary" href="${url}" target="_blank" rel="noopener noreferrer">${file.mime==='application/pdf'?'Abrir PDF':'Abrir imagen'}</a>`:'<span class="status amber">Archivo no disponible</span>'}</article>`}).join('')||'<p>Esta orden aún no tiene evidencias publicadas.</p>'}</div></article>`;
+  $('order-modal').hidden=false;document.body.classList.add('modal-open');$('order-modal').querySelector('.modal-close').focus();
+}
+function closeOrder(){ $('order-modal').hidden=true;if($('equipment-modal').hidden)document.body.classList.remove('modal-open'); }
+document.addEventListener('click',event=>{const close=event.target.closest('[data-order-close]');if(close)return closeOrder();const button=event.target.closest('[data-order]');if(button){event.stopPropagation();openOrder(button.dataset.order);}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')closeOrder();if(event.key==='Enter'&&event.target.matches('tr[data-order]'))openOrder(event.target.dataset.order);});
 
 function closeModal() {
   $('equipment-modal').hidden = true;
@@ -1055,6 +1080,7 @@ function renderReportScope(kpiRows, bitacoraRows, calendarRows, equipmentRows) {
 }
 
 function render() {
+  renderOrders();
   const kpiRows = rows('kpi');
   const kpiByEquipment = aggregateByEquipment(kpiRows);
   const bitacoraRows = rows('bitacora');
@@ -1121,7 +1147,7 @@ function fillSelect(id, options, allLabel) {
 
 function fillFilters() {
   const dieselSource = Array.isArray(data.diesel) ? data.diesel : [];
-  const allRows = [...data.equipment, ...data.kpi, ...data.bitacora, ...data.calendar, ...dieselSource];
+  const allRows = [...data.equipment, ...data.kpi, ...data.bitacora, ...data.calendar, ...dieselSource, ...data.work_orders];
   const sort = (a, b) => String(a).localeCompare(String(b), 'es');
 
   const families = [...new Set(allRows.map(row => row.family).filter(Boolean))].sort(sort);
@@ -1132,6 +1158,7 @@ function fillFilters() {
     ...data.kpi.map(row => row.equipment),
     ...data.bitacora.map(row => row.equipment),
     ...data.calendar.map(row => row.equipment),
+    ...data.work_orders.map(row => row.equipment),
     ...dieselSource.map(row => row.equipment || row.code)
   ].filter(Boolean))].sort(sort);
   fillSelect('equipment-filter', codes.map(code => [code, code]), 'Todos los equipos');
@@ -1215,17 +1242,19 @@ function csvExport() {
     inicio: ['KPI', aggregateByEquipment(rows('kpi')), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr', 'cuts']],
     bitacora: ['Bitacora', rows('bitacora'), ['date', 'equipment', 'description', 'family', 'shift', 'component', 'hi', 'hf', 'worked_hours', 'mp_hours', 'mc_hours', 'standby_hours', 'stops', 'status']],
     calendario: ['Calendario', calendarRowsForView(), ['date', 'equipment', 'description', 'family', 'service', 'type', 'meter', 'target', 'unit', 'status']],
+    ordenes: ['Ordenes', rows('work_orders'), ['number','date','equipment','family','type','status','instructions','correction']],
     equipos: ['Equipos', rows('equipment'), ['code', 'description', 'family', 'status']],
-    diesel: ['Diesel', dieselList(), ['date', 'equipment', 'description', 'family', 'shift', 'liters', 'hours', 'status']],
+    diesel: ['Diesel', dieselFiltered(), ['date', 'equipment', 'description', 'category', 'department', 'horometer', 'shift', 'shift1', 'shift2', 'shift3', 'liters']],
     reportes: ['KPI', aggregateByEquipment(rows('kpi')), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr', 'cuts']]
   };
   const [name, list, keys] = views[view];
   if (!list.length) return toast('No hay filas para exportar con estos filtros.');
-  const titles = { date: 'Fecha', equipment: 'Equipo', description: 'Descripción', family: 'Familia', availability: 'Disponibilidad %', utilization: 'Utilización %', worked_hours: 'Horas operadas', mp_hours: 'MP h', mc_hours: 'MC h', stops: 'Paros', status: 'Estado', tmef: 'TMEF', tmpr: 'TMPR', shift: 'Turno', component: 'Componente', hi: 'HI', hf: 'HF', standby_hours: 'Stand by h', service: 'Servicio / gama', type: 'Tipo', meter: 'Medidor', target: 'Objetivo', unit: 'Unidad', code: 'Código', cuts: 'Cortes', services: 'Servicios', liters: 'Litros', hours: 'Horas' };
+  const titles = { date: 'Fecha', equipment: 'Equipo', description: 'Descripción', family: 'Familia', category: 'Categoría', department: 'Departamento', horometer: 'Horómetro', shift1: 'Turno 1 (L)', shift2: 'Turno 2 (L)', shift3: 'Turno 3 (L)', availability: 'Disponibilidad %', utilization: 'Utilización %', worked_hours: 'Horas operadas', mp_hours: 'MP h', mc_hours: 'MC h', stops: 'Paros', status: 'Estado', tmef: 'TMEF', tmpr: 'TMPR', shift: 'Turno', component: 'Componente', hi: 'HI', hf: 'HF', standby_hours: 'Stand by h', service: 'Servicio / gama', type: 'Tipo', meter: 'Medidor', target: 'Objetivo', unit: 'Unidad', code: 'Código', cuts: 'Cortes', services: 'Servicios', liters: 'Total litros', hours: 'Horas' };
   const quote = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
   const csv = '\ufeff' + [keys.map(key => titles[key] || key), ...list.map(row => keys.map(key => row[key]))]
     .map(row => row.map(quote).join(',')).join('\r\n');
-  download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `SierraMadre_${name}_${$('date-start').value || 'periodo'}.csv`);
+  const from = view === 'diesel' ? $('diesel-date-start').value : $('date-start').value;
+  download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `SierraMadre_${name}_${from || 'periodo'}.csv`);
 }
 
 function download(blob, name) {
@@ -1420,56 +1449,267 @@ document.addEventListener('keydown', event => {
 // ============ MÓDULO DE DIESEL ============
 
 const DIESEL_PERIODS = { turno: 'Turno', dia: 'Día', semana: 'Semana', mes: 'Mes' };
-let dieselPeriod = 'dia';
+let dieselPeriod = 'mes';
 let dieselPdf = null; // exposed for automated preview/verification
+let dieselLocalRecords = [];
+let dieselWorkbook = null;
+let dieselWorkbookSheets = [];
+let dieselSharedStrings = [];
+let dieselImportedSource = '';
+let dieselPdfLogo = null;
+
+function xmlElements(node, name) {
+  return [...node.getElementsByTagNameNS('*', name)];
+}
+
+function xmlText(node) {
+  return xmlElements(node, 't').map(item => item.textContent || '').join('');
+}
+
+function excelColumnIndex(address) {
+  const letters = String(address || '').match(/^[A-Z]+/i)?.[0]?.toUpperCase() || '';
+  let value = 0;
+  for (const letter of letters) value = value * 26 + letter.charCodeAt(0) - 64;
+  return value - 1;
+}
+
+function excelSerialDate(value) {
+  const serial = Number(value);
+  if (!Number.isFinite(serial) || serial < 1 || serial > 100000) return '';
+  const date = new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * 86400000);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+}
+
+function parseDieselDate(value) {
+  if (typeof value === 'number' || /^\d+(?:\.\d+)?$/.test(String(value || ''))) return excelSerialDate(value);
+  const text = String(value || '').trim();
+  const iso = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`;
+  const local = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (local) return `${local[3]}-${local[2].padStart(2, '0')}-${local[1].padStart(2, '0')}`;
+  return '';
+}
+
+function dieselHeaderKey(value) {
+  return String(value || '').trim().toLocaleLowerCase('es-MX').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+}
+
+function dieselResolvePath(base, target) {
+  const parts = (target.startsWith('/') ? target.slice(1) : `${base}/${target}`).split('/');
+  const stack = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') stack.pop();
+    else stack.push(part);
+  }
+  return stack.join('/');
+}
+
+async function readDieselWorkbook(file) {
+  const Zip = typeof JSZip !== 'undefined' ? JSZip : window.JSZip;
+  if (!Zip?.loadAsync) throw new Error('No se pudo cargar el lector de Excel. Recarga el portal e inténtalo de nuevo.');
+  dieselWorkbook = await Zip.loadAsync(await file.arrayBuffer());
+  const workbookXml = dieselWorkbook.file('xl/workbook.xml');
+  const relsXml = dieselWorkbook.file('xl/_rels/workbook.xml.rels');
+  if (!workbookXml || !relsXml) throw new Error('El archivo no parece un libro Excel .xlsx válido.');
+  const [workbookText, relsText, sharedText] = await Promise.all([
+    workbookXml.async('text'), relsXml.async('text'), dieselWorkbook.file('xl/sharedStrings.xml')?.async('text') || Promise.resolve('')
+  ]);
+  const workbookDoc = new DOMParser().parseFromString(workbookText, 'application/xml');
+  const relsDoc = new DOMParser().parseFromString(relsText, 'application/xml');
+  const sharedDoc = sharedText ? new DOMParser().parseFromString(sharedText, 'application/xml') : null;
+  if (xmlElements(workbookDoc, 'parsererror').length || xmlElements(relsDoc, 'parsererror').length) throw new Error('El libro tiene una estructura interna inválida.');
+  dieselSharedStrings = sharedDoc ? xmlElements(sharedDoc, 'si').map(xmlText) : [];
+  const rels = new Map(xmlElements(relsDoc, 'Relationship').map(rel => [rel.getAttribute('Id'), rel.getAttribute('Target')]));
+  dieselWorkbookSheets = xmlElements(workbookDoc, 'sheet').map(sheet => {
+    const rid = sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id') || sheet.getAttribute('r:id');
+    const target = rels.get(rid);
+    if (!target) return null;
+    return { name: sheet.getAttribute('name') || 'Hoja', path: dieselResolvePath('xl', target) };
+  }).filter(Boolean);
+  if (!dieselWorkbookSheets.length) throw new Error('El libro no contiene hojas que se puedan leer.');
+  return { sharedStrings: dieselSharedStrings, sheets: dieselWorkbookSheets };
+}
+
+async function parseDieselSheet(sheetInfo, sharedStrings) {
+  const source = dieselWorkbook?.file(sheetInfo.path);
+  if (!source) throw new Error(`No se encontró la hoja «${sheetInfo.name}» en el libro.`);
+  const xml = await source.async('text');
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if (xmlElements(doc, 'parsererror').length) throw new Error(`La hoja «${sheetInfo.name}» está dañada.`);
+  const rows = xmlElements(doc, 'row');
+  const cellValue = cell => {
+    const type = cell.getAttribute('t');
+    if (type === 'inlineStr') return xmlText(cell);
+    const raw = xmlElements(cell, 'v')[0]?.textContent ?? '';
+    if (type === 's') return sharedStrings[Number(raw)] || '';
+    return raw;
+  };
+  let header = null;
+  let columns = {};
+  const records = [];
+  for (const row of rows) {
+    const cells = new Map(xmlElements(row, 'c').map(cell => [excelColumnIndex(cell.getAttribute('r')), cellValue(cell)]));
+    const indexed = [...cells.entries()].filter(([index]) => index >= 0).sort((a, b) => a[0] - b[0]);
+    if (!header) {
+      const candidates = new Map(indexed.map(([index, value]) => [dieselHeaderKey(value), index]));
+      if (candidates.has('categoria') && candidates.has('equipo') && candidates.has('fecha')) {
+        header = true;
+        columns = Object.fromEntries(candidates);
+      }
+      continue;
+    }
+    const at = key => columns[key] === undefined ? '' : cells.get(columns[key]) ?? '';
+    const date = parseDieselDate(at('fecha'));
+    const equipment = String(at('equipo') || '').trim();
+    if (!date || !equipment) continue;
+    const number = value => {
+      const parsed = num(String(value ?? '').replace(/,/g, '').trim());
+      return parsed === null ? 0 : parsed;
+    };
+    const shifts = [number(at('turno 1')), number(at('turno 2')), number(at('turno 3'))];
+    const reportedTotal = columns['total turnos'] === undefined ? null : num(String(at('total turnos') ?? '').replace(/,/g, '').trim());
+    const total = reportedTotal === null ? shifts.reduce((sum, liters) => sum + liters, 0) : reportedTotal;
+    if (total < 0 || shifts.some(liters => liters < 0)) continue;
+    const meterValue = num(String(at('horometro') || '').replace(/,/g, '').trim());
+    records.push({
+      sourceRow: `${sheetInfo.name}:${row.getAttribute('r') || records.length + 1}`,
+      date, equipment, category: String(at('categoria') || 'Sin categoría').trim(),
+      department: String(at('departamento') || '').trim(), horometer: meterValue,
+      shift1: shifts[0], shift2: shifts[1], shift3: shifts[2], liters: total,
+      totalMismatch: reportedTotal !== null && Math.abs(reportedTotal - shifts.reduce((sum, liters) => sum + liters, 0)) > 0.01
+    });
+  }
+  if (!header) throw new Error(`No se encontró el encabezado «Categoría / Equipo / Fecha» en «${sheetInfo.name}».`);
+  return records;
+}
+
+async function importDieselSheet() {
+  if (!dieselWorkbook) return toast('Primero selecciona un archivo Excel de Diesel.');
+  const sheet = dieselWorkbookSheets[Number($('diesel-sheet').value)];
+  if (!sheet) return toast('Selecciona una hoja válida del Excel.');
+  const button = $('diesel-load-sheet');
+  button.disabled = true;
+  button.textContent = 'Cargando…';
+  try {
+    const records = await parseDieselSheet(sheet, dieselSharedStrings);
+    if (!records.length) throw new Error(`La hoja «${sheet.name}» no contiene capturas con fecha y equipo.`);
+    dieselLocalRecords = records;
+    dieselImportedSource = sheet.name;
+    const dates = records.map(row => row.date).sort();
+    const equipmentCatalog = new Map((data.equipment || []).map(row => [row.code, row]));
+    for (const record of dieselLocalRecords) {
+      const catalog = equipmentCatalog.get(record.equipment);
+      if (catalog?.description) record.description = catalog.description;
+      if (catalog?.family && !record.category) record.category = catalog.family;
+    }
+    $('diesel-anchor-date').value = dates.at(-1);
+    setDieselPeriodRange();
+    populateDieselFilters();
+    const differences = records.filter(row => row.totalMismatch).length;
+    $('diesel-source-status').textContent = `${records.length.toLocaleString('es-MX')} capturas · ${formatDate(dates[0])} a ${formatDate(dates.at(-1))} · hoja «${sheet.name}» · nombres de operadores excluidos${differences ? ` · ${differences} diferencias entre Total Turnos y suma de turnos` : ''}.`;
+    renderDiesel();
+    toast(`Se cargaron ${records.length.toLocaleString('es-MX')} registros de Diesel.`);
+  } catch (error) {
+    $('diesel-source-status').textContent = error.message;
+    toast(`No se pudo cargar Diesel: ${error.message}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Cargar hoja';
+  }
+}
+
+function setDieselPeriodRange() {
+  const anchorValue = $('diesel-anchor-date').value || dieselLocalRecords.map(row => row.date).sort().at(-1) || '';
+  const anchor = dateAtNoon(anchorValue);
+  if (!anchor) return;
+  let start = new Date(anchor);
+  let end = new Date(anchor);
+  if (dieselPeriod === 'semana') {
+    start = weekStart(anchor);
+    end = new Date(start);
+    end.setDate(start.getDate() + 6);
+  } else if (dieselPeriod === 'mes') {
+    start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+  }
+  $('diesel-date-start').value = isoDate(start);
+  $('diesel-date-end').value = isoDate(end);
+}
+
+function populateDieselFilters() {
+  const records = dieselList();
+  const fill = (id, values, label) => {
+    const select = $(id);
+    const previous = select.value;
+    select.innerHTML = `<option value="">${label}</option>` + values.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
+    if (values.includes(previous)) select.value = previous;
+  };
+  fill('diesel-category-filter', [...new Set(records.map(row => row.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), 'Todas');
+  fill('diesel-equipment-filter', [...new Set(records.map(row => row.equipment).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), 'Todos');
+}
 
 // Normaliza un registro venga del paquete del programa o de una carga directa de Excel.
 function dieselRecord(row) {
   const date = String(row.date || row.work_date || row.fecha || '').slice(0, 10);
-  const liters = num(row.liters ?? row.diesel_liters ?? row.consumption ?? row.litros ?? row.litros_diesel);
-  const hours = num(row.worked_hours ?? row.hours ?? row.horas ?? row.worked);
-  const cost = num(row.cost ?? row.costo ?? row.importe ?? row.costo_total);
+  const shift1 = num(row.shift1 ?? row.diesel_t1 ?? row.turno_1 ?? row.turno1);
+  const shift2 = num(row.shift2 ?? row.diesel_t2 ?? row.turno_2 ?? row.turno2);
+  const shift3 = num(row.shift3 ?? row.diesel_t3 ?? row.turno_3 ?? row.turno3);
+  const shiftTotal = [shift1, shift2, shift3].some(value => value !== null)
+    ? [shift1, shift2, shift3].reduce((sum, value) => sum + (value || 0), 0) : null;
+  const liters = num(row.liters ?? row.diesel_liters ?? row.consumption ?? row.litros ?? row.litros_diesel ?? row.total_turnos);
+  const meter = num(row.horometer ?? row.horometer_final ?? row.meter ?? row.horometro);
   return {
     date,
     equipment: String(row.equipment || row.code || row.equipo || '').trim(),
     description: String(row.description || row.descripcion || '').trim(),
-    family: String(row.family || row.familia || '').trim(),
+    category: String(row.category || row.categoria || row.family || row.familia || '').trim(),
+    department: String(row.department || row.departamento || '').trim(),
     shift: String(row.shift || row.turno || '').trim(),
-    liters: liters === null ? 0 : liters,
-    hours: hours === null ? 0 : hours,
-    cost,
-    status: String(row.status || row.condition || row.estado || '').trim()
+    shift1, shift2, shift3,
+    liters: liters === null ? (shiftTotal ?? 0) : liters,
+    horometer: meter,
+    totalMismatch: Boolean(row.totalMismatch),
+    sourceRow: String(row.sourceRow || row.id || '').trim()
   };
 }
 
 function dieselList() {
-  return (Array.isArray(data.diesel) ? data.diesel : [])
+  const source = Array.isArray(data.diesel) && data.diesel.length ? data.diesel : dieselLocalRecords;
+  return source
     .map(dieselRecord)
-    .filter(row => row.date || row.equipment)
+    .filter(row => (row.date || row.equipment) && row.liters >= 0)
     .sort((a, b) => String(b.date).localeCompare(String(a.date)) || a.equipment.localeCompare(b.equipment, 'es'));
 }
 
-function conditionOfDiesel(row) {
-  const status = normStatus(row.status);
-  if (/disponible|operativo|complet|termin|realiz|ejecut/.test(status)) return 'disponible';
-  if (/no disponible|fuera|venc|fall|cr.tic|detenid/.test(status)) return 'critico';
-  if (/program|pend|proceso|urgente|proxim|riesgo|amarill/.test(status)) return 'riesgo';
-  return 'sindato';
-}
-
 function dieselFiltered() {
-  const { family, equipment, shift, status, condition, query, start, end } = filterValues();
-  return dieselList().filter(row => {
-    if (family && row.family !== family) return false;
+  const category = $('diesel-category-filter').value;
+  const equipment = $('diesel-equipment-filter').value;
+  const selectedShift = $('diesel-shift-filter').value;
+  const start = $('diesel-date-start').value;
+  const end = $('diesel-date-end').value;
+  const selected = dieselList().filter(row => {
+    if (category && row.category !== category) return false;
     if (equipment && row.equipment !== equipment) return false;
-    if (shift && row.shift !== shift) return false;
-    if (status && normStatus(row.status) !== normStatus(status)) return false;
-    if (condition && conditionOfDiesel(row) !== condition) return false;
-    if (query && !`${row.equipment} ${row.description} ${row.family} ${row.shift} ${row.status}`.toLocaleLowerCase('es-MX').includes(query)) return false;
     if (row.date && start && row.date < start) return false;
     if (row.date && end && row.date > end) return false;
     return true;
   });
+  const shiftNames = ['Turno 1', 'Turno 2', 'Turno 3'];
+  if (selectedShift) return selected.flatMap(row => {
+    const index = Number(selectedShift) - 1;
+    const amounts = [row.shift1, row.shift2, row.shift3];
+    if (amounts.every(value => value === null || value === undefined)) return row.shift === shiftNames[index] ? [{ ...row, shift: shiftNames[index] }] : [];
+    const amount = amounts[index] || 0;
+    if (amount <= 0) return [];
+    return [{ ...row, liters: amount, shift: shiftNames[index], shift1: index === 0 ? amount : 0, shift2: index === 1 ? amount : 0, shift3: index === 2 ? amount : 0 }];
+  });
+  if (dieselPeriod === 'turno') return selected.flatMap(row => {
+    const amounts = [row.shift1, row.shift2, row.shift3];
+    if (amounts.every(value => value === null || value === undefined)) return row.shift ? [row] : [];
+    return amounts.map((amount, index) => ({ ...row, shift: shiftNames[index], liters: amount || 0, shift1: index === 0 ? amount || 0 : 0, shift2: index === 1 ? amount || 0 : 0, shift3: index === 2 ? amount || 0 : 0 })).filter(row => row.liters > 0);
+  });
+  return selected;
 }
 
 function dieselPeriodKey(row, mode) {
@@ -1518,12 +1758,13 @@ function dieselBuckets(rows, mode) {
   const groups = new Map();
   for (const row of rows) {
     const key = dieselPeriodKey(row, mode);
-    if (!groups.has(key)) groups.set(key, { key, liters: 0, hours: 0, cost: 0, records: 0, equipment: new Set(), shifts: new Set() });
+    if (!groups.has(key)) groups.set(key, { key, liters: 0, shift1: 0, shift2: 0, shift3: 0, records: new Set(), equipment: new Set(), shifts: new Set() });
     const bucket = groups.get(key);
     bucket.liters += row.liters;
-    bucket.hours += row.hours;
-    bucket.records += 1;
-    if (row.cost !== null) bucket.cost += row.cost;
+    bucket.shift1 += row.shift1 || 0;
+    bucket.shift2 += row.shift2 || 0;
+    bucket.shift3 += row.shift3 || 0;
+    bucket.records.add(row.sourceRow || `${row.date}|${row.equipment}|${row.horometer ?? ''}|${row.liters}`);
     if (row.equipment) bucket.equipment.add(row.equipment);
     if (row.shift) bucket.shifts.add(row.shift);
   }
@@ -1531,11 +1772,11 @@ function dieselBuckets(rows, mode) {
     key: bucket.key,
     label: dieselPeriodLabel(bucket.key, mode),
     liters: bucket.liters,
-    hours: bucket.hours,
-    cost: bucket.cost,
-    records: bucket.records,
+    shift1: bucket.shift1,
+    shift2: bucket.shift2,
+    shift3: bucket.shift3,
+    records: bucket.records.size,
     equipmentCount: bucket.equipment.size,
-    yield: bucket.hours > 0 ? bucket.liters / bucket.hours : null
   })).sort((a, b) => String(b.key).localeCompare(String(a.key)));
 }
 
@@ -1543,31 +1784,49 @@ function dieselByEquipment(rows) {
   const groups = new Map();
   for (const row of rows) {
     const code = row.equipment || 'Sin equipo';
-    if (!groups.has(code)) groups.set(code, { equipment: code, description: row.description, family: row.family, liters: 0, hours: 0, records: 0 });
+    if (!groups.has(code)) groups.set(code, { equipment: code, description: row.description, category: row.category, department: row.department, horometer: null, latestDate: '', shift1: 0, shift2: 0, shift3: 0, liters: 0, records: new Set() });
     const bucket = groups.get(code);
     bucket.liters += row.liters;
-    bucket.hours += row.hours;
-    bucket.records += 1;
+    bucket.shift1 += row.shift1 || 0;
+    bucket.shift2 += row.shift2 || 0;
+    bucket.shift3 += row.shift3 || 0;
+    bucket.records.add(row.sourceRow || `${row.date}|${row.equipment}|${row.horometer ?? ''}|${row.liters}`);
     if (!bucket.description && row.description) bucket.description = row.description;
-    if (!bucket.family && row.family) bucket.family = row.family;
+    if (!bucket.category && row.category) bucket.category = row.category;
+    if (!bucket.department && row.department) bucket.department = row.department;
+    if (row.horometer !== null && row.horometer !== undefined && (!bucket.latestDate || row.date >= bucket.latestDate)) {
+      bucket.latestDate = row.date;
+      bucket.horometer = row.horometer;
+    }
   }
-  return [...groups.values()]
-    .map(bucket => ({ ...bucket, yield: bucket.hours > 0 ? bucket.liters / bucket.hours : null }))
+  return [...groups.values()].map(bucket => ({ ...bucket, records: bucket.records.size }))
     .sort((a, b) => b.liters - a.liters);
 }
 
 function dieselTotals(rows) {
   const liters = rows.reduce((sum, row) => sum + row.liters, 0);
-  const hours = rows.reduce((sum, row) => sum + row.hours, 0);
+  const captureCount = new Set(rows.map(row => row.sourceRow || `${row.date}|${row.equipment}|${row.horometer ?? ''}|${row.liters}`)).size;
   return {
     liters,
-    hours,
-    cost: rows.reduce((sum, row) => sum + (row.cost || 0), 0),
-    hasCost: rows.some(row => row.cost !== null),
-    yield: hours > 0 ? liters / hours : null,
     equipment: new Set(rows.map(row => row.equipment).filter(Boolean)).size,
-    records: rows.length
+    records: captureCount,
+    average: captureCount ? liters / captureCount : null,
+    mismatches: new Set(rows.filter(row => row.totalMismatch).map(row => row.sourceRow || `${row.date}|${row.equipment}|${row.horometer ?? ''}`)).size,
+    horometer: [...rows].filter(row => row.horometer !== null && row.horometer !== undefined).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]?.horometer ?? null
   };
+}
+
+function dieselByCategory(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const category = row.category || 'Sin categoría';
+    if (!groups.has(category)) groups.set(category, { category, liters: 0, equipment: new Set(), records: new Set() });
+    const group = groups.get(category);
+    group.liters += row.liters;
+    if (row.equipment) group.equipment.add(row.equipment);
+    group.records.add(row.sourceRow || `${row.date}|${row.equipment}|${row.horometer ?? ''}|${row.liters}`);
+  }
+  return [...groups.values()].map(group => ({ category: group.category, liters: group.liters, equipmentCount: group.equipment.size, records: group.records.size })).sort((a, b) => b.liters - a.liters);
 }
 
 // Compatibilidad con la exportación CSV genérica (botón global).
@@ -1587,14 +1846,19 @@ function dieselPdfHeader(pdf) {
   pdf.rect(0, 0, 210, 20, 'F');
   pdf.setFillColor('#1476df');
   pdf.rect(0, 20, 210, 1.2, 'F');
+  if (dieselPdfLogo) {
+    pdf.setFillColor('#ffffff');
+    pdf.roundedRect(8, 2.5, 14, 15, 1, 1, 'F');
+    pdf.addImage(dieselPdfLogo, 'PNG', 9, 3, 12, 14, undefined, 'FAST');
+  }
   pdf.setTextColor('#ffffff');
   pdf.setFont('Helvetica', 'bold');
   pdf.setFontSize(14);
-  pdf.text('SIERRA MADRE · MANTENIMIENTO', 10, 9);
+  pdf.text('SIERRA MADRE · MANTENIMIENTO', 25, 9);
   pdf.setFont('Helvetica', 'normal');
   pdf.setFontSize(7.5);
   pdf.setTextColor('#9fc4ea');
-  pdf.text('Reporte de consumo de Diesel', 10, 15);
+  pdf.text('Reporte ejecutivo de consumo de Diesel', 25, 15);
   pdf.text(`Generado ${new Date().toLocaleString('es-MX')}`, 200, 9, { align: 'right' });
   pdf.text(REPORT_UNIT, 200, 15, { align: 'right' });
 }
@@ -1659,7 +1923,7 @@ function dieselPdfTable(pdf, startY, left, columns, rows) {
   return y;
 }
 
-function generateDieselPDF() {
+async function generateDieselPDF() {
   const JsPDF = typeof jsPDF !== 'undefined' ? jsPDF : (window.jspdf && window.jspdf.jsPDF);
   if (!JsPDF) {
     toast('No se pudo cargar el generador de PDF. Recarga la página e inténtalo de nuevo.');
@@ -1674,11 +1938,24 @@ function generateDieselPDF() {
   const buckets = dieselBuckets(rows, mode);
   const totals = dieselTotals(rows);
   const byEquipment = dieselByEquipment(rows);
-  const start = $('date-start').value || data.meta?.periodStart || '';
-  const end = $('date-end').value || data.meta?.periodEnd || '';
+  const byCategory = dieselByCategory(rows);
+  const start = $('diesel-date-start').value || '';
+  const end = $('diesel-date-end').value || '';
 
   const pdf = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   dieselPdf = pdf;
+  try {
+    const response = await fetch('./assets/logo.png', { cache: 'force-cache' });
+    if (response.ok) {
+      const blob = await response.blob();
+      dieselPdfLogo = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch { dieselPdfLogo = null; }
   dieselPdfHeader(pdf);
 
   // Encabezado del reporte
@@ -1691,15 +1968,15 @@ function generateDieselPDF() {
   pdf.setTextColor('#556d87');
   pdf.text(`Agrupación: ${DIESEL_PERIODS[mode]}`, 10, 38);
   pdf.text(`Periodo: ${formatRange(start, end)}`, 10, 43);
-  pdf.text(`Total de registros: ${totals.records} · Equipos: ${totals.equipment}`, 10, 48);
+  pdf.text(`Hoja: ${dieselImportedSource || 'Datos publicados'} · Capturas: ${totals.records} · Equipos: ${totals.equipment}`, 10, 48);
 
   // Tarjetas KPI
   const cards = [
     { label: 'Litros consumidos', value: `${fmt(totals.liters)} L`, color: '#f59b18' },
-    { label: 'Horas trabajadas', value: `${fmt(totals.hours)} h`, color: '#1476df' },
-    { label: 'Rendimiento', value: totals.yield === null ? '—' : `${fmt(totals.yield)} L/h`, color: '#12a66a' },
+    { label: 'Capturas', value: `${totals.records}`, color: '#1476df' },
     { label: 'Equipos', value: `${totals.equipment}`, color: '#8052e8' },
-    { label: 'Registros', value: `${totals.records}`, color: '#0ba6a7' }
+    { label: 'Promedio / captura', value: `${fmt(totals.average)} L`, color: '#12a66a' },
+    { label: 'Categorías', value: `${byCategory.length}`, color: '#0ba6a7' }
   ];
   const cardW = 36, cardGap = 3.5, cardY = 54, cardH = 20;
   cards.forEach((card, index) => {
@@ -1720,59 +1997,84 @@ function generateDieselPDF() {
     pdf.text(card.label, x + cardW / 2, cardY + 16.6, { align: 'center' });
   });
 
-  // Gráfica de barras por periodo
-  const chartTop = 84, chartHeight = 34, chartLeft = 12, chartWidth = 186;
+  // Gráficas de consumo por periodo y categoría
   pdf.setFont('Helvetica', 'bold');
   pdf.setFontSize(10);
   pdf.setTextColor('#0f3c70');
   pdf.text(`Consumo por ${DIESEL_PERIODS[mode].toLowerCase()} (litros)`, 10, 80);
+  pdf.text('Consumo por categoría', 132, 80);
   pdf.setDrawColor('#e2ebf5');
   pdf.setLineWidth(0.3);
   pdf.line(10, cardY + cardH + 10, 200, cardY + cardH + 10);
   pdf.line(10, cardY + cardH + 40, 200, cardY + cardH + 40);
-  const chartBottom = cardY + cardH + 40;
-  const chartTopY = cardY + cardH + 10;
-  const chartData = buckets.slice(0, 12).reverse();
-  const maxLiters = Math.max(...chartData.map(bucket => bucket.liters), 1);
-  const slot = 186 / Math.max(chartData.length, 1);
-  const barWidth = Math.min(slot * 0.55, 11);
-  chartData.forEach((bucket, index) => {
-    const usable = chartBottom - chartTopY - 6;
-    const barHeight = Math.max((bucket.liters / maxLiters) * usable, 0.8);
-    const x = 12 + index * slot + (slot - barWidth) / 2;
-    const y = chartBottom - barHeight;
-    pdf.setFillColor('#1476df');
-    pdf.roundedRect(x, y, barWidth, barHeight, 1, 1, 'F');
-    pdf.setFont('Helvetica', 'bold');
-    pdf.setFontSize(5.5);
-    pdf.setTextColor('#0f3c70');
-    pdf.text(fmt(bucket.liters), x + barWidth / 2, y - 1.2, { align: 'center' });
-    pdf.setFont('Helvetica', 'normal');
-    pdf.setTextColor('#6d829b');
-    pdf.text(dieselShortLabel(bucket.key, mode), x + barWidth / 2, chartBottom + 3.4, { align: 'center' });
-  });
+  const drawBars = (items, left, width) => {
+    const chartData = items.slice(0, 10).reverse();
+    if (!chartData.length) return;
+    const chartBottom = 124, chartTopY = 91;
+    const maxLiters = Math.max(...chartData.map(item => item.liters), 1);
+    const slot = width / chartData.length;
+    const barWidth = Math.min(slot * 0.55, 11);
+    chartData.forEach((item, index) => {
+      const barHeight = Math.max((item.liters / maxLiters) * (chartBottom - chartTopY - 6), 0.8);
+      const x = left + index * slot + (slot - barWidth) / 2;
+      const y = chartBottom - barHeight;
+      pdf.setFillColor(index % 2 ? '#17a76a' : '#1476df');
+      pdf.roundedRect(x, y, barWidth, barHeight, 1, 1, 'F');
+      pdf.setFont('Helvetica', 'bold');
+      pdf.setFontSize(5.2);
+      pdf.setTextColor('#0f3c70');
+      pdf.text(fmt(item.liters), x + barWidth / 2, y - 1.2, { align: 'center' });
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setFontSize(5.2);
+      pdf.setTextColor('#6d829b');
+      pdf.text(dieselPdfFit(pdf, item.label, slot - 1), x + barWidth / 2, chartBottom + 3.4, { align: 'center' });
+    });
+  };
+  drawBars(buckets.slice(0, 10).map(bucket => ({ label: dieselShortLabel(bucket.key, mode), liters: bucket.liters })), 10, 116);
+  drawBars(byCategory.map(item => ({ label: item.category, liters: item.liters })), 132, 68);
 
   // Tabla resumen por periodo
-  let cursorY = 108;
+  if (totals.mismatches) {
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setFontSize(7);
+    pdf.setTextColor('#9a5a00');
+    pdf.text(`Nota: ${totals.mismatches} captura(s) no coinciden entre Total Turnos y la suma de los tres turnos. El total conserva el dato del Excel.`, 10, 132);
+  }
+  let cursorY = 140;
   pdf.setFont('Helvetica', 'bold');
   pdf.setFontSize(10);
   pdf.setTextColor('#0f3c70');
   pdf.text(`Resumen por ${DIESEL_PERIODS[mode].toLowerCase()}`, 10, cursorY - 3);
   cursorY = dieselPdfTable(pdf, cursorY, 10, [
-    { title: 'Periodo', width: 60 },
-    { title: 'Equipos', width: 18, align: 'center' },
-    { title: 'Registros', width: 20, align: 'center' },
-    { title: 'Litros', width: 26, align: 'right' },
-    { title: 'Horas', width: 24, align: 'right' },
-    { title: 'L/h', width: 28, align: 'right' }
+    { title: 'Periodo', width: 55 },
+    { title: 'Equipos', width: 17, align: 'center' },
+    { title: 'Capturas', width: 19, align: 'center' },
+    { title: 'Turno 1 L', width: 22, align: 'right' },
+    { title: 'Turno 2 L', width: 22, align: 'right' },
+    { title: 'Turno 3 L', width: 22, align: 'right' },
+    { title: 'Total L', width: 30, align: 'right' }
   ], buckets.map(bucket => [
     bucket.label,
     String(bucket.equipmentCount),
     String(bucket.records),
-    fmt(bucket.liters),
-    fmt(bucket.hours),
-    bucket.yield === null ? '—' : fmt(bucket.yield)
+    fmt(bucket.shift1),
+    fmt(bucket.shift2),
+    fmt(bucket.shift3),
+    fmt(bucket.liters)
   ]));
+
+  cursorY += 9;
+  if (cursorY > 250) { pdf.addPage(); dieselPdfHeader(pdf); cursorY = 30; }
+  pdf.setFont('Helvetica', 'bold');
+  pdf.setFontSize(10);
+  pdf.setTextColor('#0f3c70');
+  pdf.text('Consumo por categoría', 10, cursorY - 3);
+  cursorY = dieselPdfTable(pdf, cursorY, 10, [
+    { title: 'Categoría', width: 80 },
+    { title: 'Equipos', width: 30, align: 'center' },
+    { title: 'Capturas', width: 35, align: 'center' },
+    { title: 'Litros', width: 45, align: 'right' }
+  ], byCategory.map(item => [item.category, String(item.equipmentCount), String(item.records), fmt(item.liters)]));
 
   // Tabla por equipo
   cursorY += 9;
@@ -1786,19 +2088,25 @@ function generateDieselPDF() {
   pdf.setTextColor('#0f3c70');
   pdf.text('Consumo por equipo', 10, cursorY - 3);
   dieselPdfTable(pdf, cursorY, 10, [
-    { title: 'Equipo', width: 32 },
-    { title: 'Descripción', width: 54 },
-    { title: 'Familia', width: 32 },
-    { title: 'Litros', width: 24, align: 'right' },
-    { title: 'Horas', width: 22, align: 'right' },
-    { title: 'L/h', width: 26, align: 'right' }
+    { title: 'Equipo', width: 25 },
+    { title: 'Categoría', width: 25 },
+    { title: 'Departamento', width: 25 },
+    { title: 'Horómetro', width: 22, align: 'right' },
+    { title: 'T1 L', width: 18, align: 'right' },
+    { title: 'T2 L', width: 18, align: 'right' },
+    { title: 'T3 L', width: 18, align: 'right' },
+    { title: 'Total L', width: 24, align: 'right' },
+    { title: 'Capturas', width: 15, align: 'center' }
   ], byEquipment.map(item => [
     item.equipment,
-    item.description || '—',
-    item.family || '—',
+    item.category || '—',
+    item.department || '—',
+    fmt(item.horometer),
+    fmt(item.shift1),
+    fmt(item.shift2),
+    fmt(item.shift3),
     fmt(item.liters),
-    fmt(item.hours),
-    item.yield === null ? '—' : fmt(item.yield)
+    String(item.records)
   ]));
 
   dieselPdfFooter(pdf);
@@ -1808,89 +2116,139 @@ function generateDieselPDF() {
 }
 
 function renderDiesel() {
+  populateDieselFilters();
   const rows = dieselFiltered();
   const mode = dieselPeriod;
   const buckets = dieselBuckets(rows, mode);
   const totals = dieselTotals(rows);
+  const categories = dieselByCategory(rows);
+  const byEquipment = dieselByEquipment(rows);
 
   const countEl = $('diesel-count');
-  if (countEl) countEl.textContent = `${rows.length} registros`;
+  if (countEl) countEl.textContent = `${totals.records.toLocaleString('es-MX')} capturas`;
 
   const kpis = $('diesel-kpis');
   if (kpis) {
     kpis.innerHTML = [
       metric('Litros consumidos', `${fmt(totals.liters)} L`, 'Consumo total del periodo', '#f59b18', '⛽'),
-      metric('Horas trabajadas', `${fmt(totals.hours)} h`, 'Horas asociadas a los registros', '#1476df', '⏱'),
-      metric('Rendimiento', totals.yield === null ? '—' : `${fmt(totals.yield)} L/h`, 'Litros consumidos por hora', '#12a66a', '◑'),
-      metric('Equipos con consumo', `${totals.equipment}`, 'Unidades con registro en el periodo', '#8052e8', '◉'),
-      metric('Registros de combustible', `${totals.records}`, `${buckets.length} ${DIESEL_PERIODS[mode].toLowerCase()}(s) con datos`, '#0ba6a7', '▤')
+      metric('Capturas', totals.records.toLocaleString('es-MX'), 'Renglones de abastecimiento', '#1476df', '▤'),
+      metric('Equipos con consumo', `${totals.equipment}`, 'Unidades distintas en el periodo', '#8052e8', '◉'),
+      metric('Promedio por captura', totals.average === null ? '—' : `${fmt(totals.average)} L`, 'Litros / renglón de abastecimiento', '#12a66a', '◑'),
+      metric('Categorías', `${categories.length}`, 'Tipos registrados en el Excel', '#0ba6a7', '▣')
     ].join('');
   }
 
-  const chart = $('diesel-chart');
-  if (chart) {
-    if (!buckets.length) {
-      chart.innerHTML = '<p class="diesel-empty">Sin registros de Diesel para los filtros seleccionados.</p>';
-    } else {
-      const data = buckets.slice(0, 12).reverse();
-      const maxLiters = Math.max(...data.map(bucket => bucket.liters), 1);
-      chart.innerHTML = `<div class="diesel-bars">${data.map(bucket => `
-        <div class="diesel-bar" title="${esc(bucket.label)}: ${fmt(bucket.liters)} L">
-          <b>${fmt(bucket.liters)}</b>
-          <span class="diesel-bar-track"><i style="height:${Math.max(4, (bucket.liters / maxLiters) * 100)}%"></i></span>
-          <small>${esc(dieselShortLabel(bucket.key, mode))}</small>
-        </div>`).join('')}</div>`;
-    }
-  }
+  renderDieselBarChart($('diesel-chart'), buckets.slice(0, 12).reverse().map(bucket => ({ label: dieselShortLabel(bucket.key, mode), value: bucket.liters, title: bucket.label })));
+  renderDieselBarChart($('diesel-category-chart'), categories.slice(0, 10).reverse().map(bucket => ({ label: bucket.category, value: bucket.liters, title: `${bucket.category}: ${fmt(bucket.liters)} L` })));
 
   const tbody = $('diesel-table');
   if (tbody) {
     tbody.innerHTML = buckets.length
-      ? buckets.map(bucket => `<tr><td><b>${esc(bucket.label)}</b></td><td>${bucket.equipmentCount}</td><td>${fmt(bucket.liters)}</td><td>${fmt(bucket.hours)}</td><td>${bucket.yield === null ? '—' : fmt(bucket.yield)}</td><td>${bucket.records}</td></tr>`).join('')
-      : '<tr><td class="empty" colspan="6">Sin registros para estos filtros.</td></tr>';
+      ? buckets.map(bucket => `<tr><td><b>${esc(bucket.label)}</b></td><td>${bucket.equipmentCount}</td><td>${bucket.records}</td><td>${fmt(bucket.shift1)}</td><td>${fmt(bucket.shift2)}</td><td>${fmt(bucket.shift3)}</td><td><b>${fmt(bucket.liters)}</b></td></tr>`).join('')
+      : '<tr><td class="empty" colspan="7">Sin registros para estos filtros.</td></tr>';
   }
+  const equipmentTable = $('diesel-equipment-table');
+  if (equipmentTable) equipmentTable.innerHTML = byEquipment.length
+    ? byEquipment.map(item => `<tr><td><b>${esc(item.equipment)}</b><br>${esc(item.description || '')}</td><td>${esc(item.category || '—')}</td><td>${esc(item.department || '—')}</td><td>${fmt(item.horometer)}</td><td>${fmt(item.shift1)}</td><td>${fmt(item.shift2)}</td><td>${fmt(item.shift3)}</td><td><b>${fmt(item.liters)}</b></td><td>${item.records}</td></tr>`).join('')
+    : '<tr><td class="empty" colspan="9">Carga una hoja del Excel de Diesel para consultar los equipos.</td></tr>';
 
   const scope = $('diesel-scope');
   if (scope) {
-    const start = $('date-start').value || data.meta?.periodStart || '';
-    const end = $('date-end').value || data.meta?.periodEnd || '';
-    scope.textContent = `Agrupado por ${DIESEL_PERIODS[mode].toLowerCase()} · ${formatRange(start, end)} · ${rows.length} registros en ${buckets.length} periodo(s).`;
+    const start = $('diesel-date-start').value || '';
+    const end = $('diesel-date-end').value || '';
+    scope.textContent = `${dieselImportedSource ? `Hoja «${dieselImportedSource}» · ` : ''}Agrupado por ${DIESEL_PERIODS[mode].toLowerCase()} · ${formatRange(start, end)} · ${totals.records} capturas en ${buckets.length} periodo(s)${totals.mismatches ? ` · ${totals.mismatches} diferencias Total Turnos / suma de turnos` : ''}.`;
   }
 
   const range = $('diesel-pdf-range');
-  if (range) range.textContent = `${DIESEL_PERIODS[mode]} · ${buckets.length} periodo(s) · ${fmt(totals.liters)} L`;
+  if (range) range.textContent = `${DIESEL_PERIODS[mode]} · ${formatRange($('diesel-date-start').value, $('diesel-date-end').value)} · ${fmt(totals.liters)} L`;
+
+  if (Array.isArray(data.diesel) && data.diesel.length) {
+    $('diesel-source-status').textContent = `${data.diesel.length.toLocaleString('es-MX')} registros recibidos desde la publicación del programa. El archivo no se carga en este navegador.`;
+  } else if (!dieselLocalRecords.length) {
+    $('diesel-source-status').textContent = 'El paquete web todavía no incluye Diesel del programa. Selecciona el Excel que importas en Mantenimiento.exe para consultarlo aquí.';
+  }
 
   document.querySelectorAll('#period-toggle-diesel [data-period]').forEach(button => button.classList.toggle('active', button.dataset.period === mode));
+}
+
+function renderDieselBarChart(host, items) {
+  if (!host) return;
+  if (!items.length) {
+    host.innerHTML = '<p class="diesel-empty">Sin registros para los filtros seleccionados.</p>';
+    return;
+  }
+  const max = Math.max(...items.map(item => item.value), 1);
+  host.innerHTML = `<div class="diesel-bars">${items.map(item => `
+    <div class="diesel-bar" title="${esc(item.title)}">
+      <b>${fmt(item.value)}</b>
+      <span class="diesel-bar-track"><i style="height:${Math.max(4, item.value / max * 100)}%"></i></span>
+      <small>${esc(item.label)}</small>
+    </div>`).join('')}</div>`;
 }
 
 function generateDieselCSV() {
   const rows = dieselFiltered();
   if (!rows.length) return toast('No hay registros de Diesel para exportar con estos filtros.');
-  const titles = ['Fecha', 'Equipo', 'Descripción', 'Familia', 'Turno', 'Litros', 'Horas', 'Rendimiento (L/h)', 'Costo', 'Estado'];
+  const titles = ['Fecha', 'Equipo', 'Descripción', 'Categoría', 'Departamento', 'Horómetro', 'Turno', 'Turno 1 (L)', 'Turno 2 (L)', 'Turno 3 (L)', 'Total (L)'];
   const quote = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
   const lines = [titles, ...rows.map(row => [
     row.date,
     row.equipment,
     row.description,
-    row.family,
+    row.category,
+    row.department,
+    row.horometer,
     row.shift,
-    row.liters.toFixed(2),
-    row.hours.toFixed(2),
-    row.hours > 0 ? (row.liters / row.hours).toFixed(2) : '',
-    row.cost === null ? '' : row.cost.toFixed(2),
-    row.status
+    (row.shift1 || 0).toFixed(2),
+    (row.shift2 || 0).toFixed(2),
+    (row.shift3 || 0).toFixed(2),
+    row.liters.toFixed(2)
   ])];
   const csv = '\ufeff' + lines.map(line => line.map(quote).join(',')).join('\r\n');
-  download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `SierraMadre_Diesel_${$('date-start').value || 'periodo'}.csv`);
+  download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `SierraMadre_Diesel_${dieselPeriod}_${$('diesel-date-start').value || 'periodo'}.csv`);
   toast('CSV de Diesel exportado.');
 }
 
 document.querySelectorAll('#period-toggle-diesel [data-period]').forEach(button => button.addEventListener('click', () => {
   dieselPeriod = button.dataset.period;
+  setDieselPeriodRange();
   renderDiesel();
 }));
 $('export-diesel-pdf').addEventListener('click', generateDieselPDF);
 $('export-diesel-csv').addEventListener('click', generateDieselCSV);
+$('diesel-open-file').addEventListener('click', () => { $('diesel-file-input').value = ''; $('diesel-file-input').click(); });
+$('diesel-file-input').addEventListener('change', async event => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  $('diesel-source-status').textContent = `Leyendo «${file.name}» en este navegador…`;
+  $('diesel-open-file').disabled = true;
+  try {
+    const result = await readDieselWorkbook(file);
+    $('diesel-sheet').innerHTML = result.sheets.map((sheet, index) => `<option value="${index}">${esc(sheet.name)}</option>`).join('');
+    $('diesel-sheet').disabled = false;
+    $('diesel-sheet').value = String(result.sheets.length - 1);
+    $('diesel-load-sheet').disabled = false;
+    $('diesel-source-status').textContent = `Libro reconocido · ${result.sheets.length} hojas. Se seleccionó la última hoja; revisa el nombre y cárgala para analizarla sin sumar otras hojas.`;
+    await importDieselSheet();
+  } catch (error) {
+    $('diesel-source-status').textContent = error.message;
+    toast(`No se pudo leer el Excel: ${error.message}`);
+  } finally {
+    $('diesel-open-file').disabled = false;
+  }
+});
+$('diesel-load-sheet').addEventListener('click', importDieselSheet);
+['diesel-date-start', 'diesel-date-end', 'diesel-category-filter', 'diesel-equipment-filter', 'diesel-shift-filter'].forEach(id => $(id).addEventListener('change', renderDiesel));
+$('diesel-anchor-date').addEventListener('change', () => { setDieselPeriodRange(); renderDiesel(); });
+$('diesel-clear-filters').addEventListener('click', () => {
+  $('diesel-category-filter').value = '';
+  $('diesel-equipment-filter').value = '';
+  $('diesel-shift-filter').value = '';
+  const latest = dieselLocalRecords.map(row => row.date).sort().at(-1) || '';
+  $('diesel-anchor-date').value = latest;
+  setDieselPeriodRange();
+  renderDiesel();
+});
 
 render();
 refreshData();

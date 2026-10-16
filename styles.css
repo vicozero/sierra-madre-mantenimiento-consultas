@@ -220,6 +220,17 @@ td b { color: #183b5d; }
 .toast { position: fixed; right: 20px; bottom: 20px; z-index: 20; padding: 11px 15px; border-radius: 8px; color: white; background: #102f50; box-shadow: 0 5px 18px #071c3555; opacity: 0; pointer-events: none; transition: opacity .2s; font-size: 11px; }
 .toast.show { opacity: 1; }
 
+.diesel-import { margin-bottom: 10px; padding: 14px 16px; border-left: 3px solid var(--teal); }
+.diesel-import-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.diesel-import h3 { margin: 0; color: #123963; font-size: 12px; }
+.diesel-import p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+.diesel-import > small { display: block; margin-top: 10px; color: #6d829b; font-size: 9px; line-height: 1.45; }
+.diesel-import-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.diesel-import-actions select { min-width: 220px; max-width: min(360px, 48vw); min-height: 34px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 7px; color: var(--ink); background: white; }
+.diesel-filters { display: flex; align-items: end; gap: 9px; flex-wrap: wrap; margin-bottom: 10px; padding: 10px; }
+.diesel-filters .filter-field { min-width: 120px; flex: 1; }
+.diesel-filters .filter-field input, .diesel-filters .filter-field select { width: 100%; height: 34px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 7px; color: var(--ink); background: #fff; }
+.diesel-filters .filter-field span { display: block; margin: 0 0 4px; color: var(--muted); font-size: 9px; }
 .diesel-feature { margin-bottom: 10px; }
 .diesel-feature-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .diesel-feature-info { display: flex; align-items: center; gap: 11px; min-width: 0; }
@@ -228,6 +239,9 @@ td b { color: #183b5d; }
 .diesel-feature-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 .diesel-feature-foot #diesel-pdf-range { color: var(--muted); font-size: 10px; }
 .diesel-chart { margin: 14px 0 2px; }
+.diesel-charts { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .85fr); gap: 18px; }
+.diesel-charts > section { min-width: 0; }
+.diesel-charts h4 { margin: 12px 0 0; color: #173e69; font-size: 10px; }
 .diesel-bars { display: flex; align-items: flex-end; gap: 6px; height: 185px; padding: 12px 4px 0; border-bottom: 1px solid #e2ebf5; overflow-x: auto; }
 .diesel-bar { display: flex; min-width: 36px; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; }
 .diesel-bar b { color: #0f3c70; font-size: 8px; }
@@ -235,6 +249,11 @@ td b { color: #183b5d; }
 .diesel-bar-track i { display: block; width: 100%; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #16b5e5, #1476df); }
 .diesel-bar small { color: #8293a7; font-size: 7px; white-space: nowrap; }
 .diesel-empty { padding: 28px 0; color: var(--muted); font-size: 11px; text-align: center; }
+.diesel-detail-panel { margin-top: 10px; }
+.diesel-feature-foot { justify-content: flex-start; }
+.diesel-feature-foot #diesel-pdf-range { margin-left: auto; }
+@media (max-width: 900px) { .diesel-charts { grid-template-columns: 1fr; gap: 5px; }.diesel-import-actions { width: 100%; }.diesel-import-actions select { flex: 1; min-width: 160px; max-width: 100%; } }
+@media (max-width: 680px) { .diesel-filters .filter-field { min-width: calc(50% - 8px); flex: 1 1 calc(50% - 8px); }.diesel-import-actions .button { flex: 1; }.diesel-import-actions select { width: 100%; flex-basis: 100%; }.diesel-feature-foot #diesel-pdf-range { width: 100%; margin-left: 0; } }
 
 .print-head { display: none; }
 .print-logo { width: 52px; height: 44px; object-fit: contain; }
@@ -349,3 +368,6 @@ body.calendar-open .filters, body.calendar-open .report-actions { display: none 
 @media (max-width: 850px) { .calendar-layout { grid-template-columns: 1fr; }.calendar-aside { position: static; }.calendar-toolbar { grid-template-columns: repeat(2,minmax(0,1fr)); }.calendar-search { grid-column: 1 / -1; }.calendar-month-nav,.calendar-actions { grid-column: 1 / -1; justify-content: center; }.calendar-actions { flex-wrap: wrap; }.calendar-actions .button { flex: 1; }.calendar-day { min-height: 85px; padding: 4px; }.calendar-weekdays span { font-size: 8px; }.service-event-title { font-size: 7px; }.service-event-equipment { font-size: 6px; } }
 @media (max-width: 540px) { .calendar-main-panel { padding: 8px; }.calendar-main-head { align-items: flex-start; flex-direction: column; }.calendar-day { min-height: 68px; }.calendar-no-service { display: none; }.calendar-summary-card { padding: 7px; }.calendar-aside { padding: 12px; }.calendar-view-switch { width: 100%; }.calendar-view-switch button { flex: 1; } }
 @media print { .printing #view-calendario .calendar-toolbar,.printing #view-calendario .calendar-aside,.printing #view-calendario .calendar-view-switch { display: none !important; }.printing #view-calendario .calendar-layout { display: block; }.printing #view-calendario .calendar-main-panel { padding: 0; }.printing #view-calendario .calendar-day { min-height: 95px; }.printing #view-calendario .calendar-weekdays span { padding: 5px; } }
+
+/* Evidencias de OT */
+#order-modal{z-index:1200}.order-text{white-space:pre-wrap;overflow-wrap:anywhere}.order-links{display:flex;gap:8px;flex-wrap:wrap}.evidence-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.evidence-card{padding:14px;border:1px solid #d7e4f0;border-radius:12px;overflow-wrap:anywhere}.evidence-card img{width:100%;height:180px;object-fit:contain;background:#f2f6fb;border-radius:8px}.evidence-card .button{margin-top:12px}#orders-table tr{cursor:pointer}
