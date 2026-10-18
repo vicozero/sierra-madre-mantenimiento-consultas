@@ -138,6 +138,7 @@ function rowCode(section, row) {
 function rows(section) {
   const { family, equipment, shift, status, condition, type, query, start, end } = filterValues();
   return (data[section] || []).filter(row => {
+    if (section === 'bitacora' && isSupervisionTransport(row)) return false;
     if (family && row.family !== family) return false;
     if (equipment && rowCode(section, row) !== equipment) return false;
     if (shift && section === 'bitacora' && row.shift !== shift) return false;
@@ -148,6 +149,20 @@ function rows(section) {
     if (row.date && start && row.date.slice(0, 10) < start) return false;
     if (row.date && end && row.date.slice(0, 10) > end) return false;
     return true;
+  });
+}
+
+function isSupervisionTransport(row) {
+  return /^SUPERVISI[ÓO]N\s*[·|]/i.test(String(row?.component || '')) || /^SUPERVISI[ÓO]N\|/i.test(String(row?.status || ''));
+}
+
+function transportedSupervisionRows() {
+  return (data.bitacora || []).filter(isSupervisionTransport).map(row => {
+    const component = String(row.component || '');
+    const supervisor = component.replace(/^SUPERVISI[ÓO]N\s*[·|]\s*/i, '').trim() || 'Sin supervisor';
+    const parts = String(row.status || '').split('|');
+    const value = key => { const part = parts.find(item => item.indexOf(`${key}=`) === 0); return part ? num(part.slice(key.length + 1)) : null; };
+    return { ...row, supervisor, availability: value('A'), utilization: value('U'), status: parts[1] || 'Sin estado' };
   });
 }
 
@@ -1087,7 +1102,7 @@ function renderReportScope(kpiRows, bitacoraRows, calendarRows, equipmentRows) {
 
 function supervisionRows() {
   const { family, equipment, shift, query, start, end } = filterValues();
-  return (data.supervision || []).filter(row => {
+  return ([...(data.supervision || []), ...transportedSupervisionRows()]).filter(row => {
     const date = String(row.date || '').slice(0, 10);
     if (family && row.family !== family) return false;
     if (equipment && row.equipment !== equipment) return false;
