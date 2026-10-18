@@ -1,5 +1,5 @@
 const API_URL = 'https://sierra-madre-consulta-api.feywren128.chatgpt.site/api/portal';
-const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [] };
+const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [], supervision: [] };
 const PALETTE = ['#1476df', '#31ad72', '#f6be25', '#f28a27', '#8052e8', '#0ba6a7', '#75869a'];
 let data = structuredClone(EMPTY);
 let view = 'inicio';
@@ -14,6 +14,7 @@ let calendarListMode = false;
 const VIEWS = {
   inicio: { label: 'Resumen KPI', title: 'Información del programa', subtitle: 'KPI, bitácora y calendario de servicio en una sola página.' },
   bitacora: { label: 'Bitácora', title: 'Bitácora de equipos', subtitle: 'Lecturas de medidor, horas y estado por fecha y turno.' },
+  supervision: { label: 'Disponibilidad supervisión', title: 'Disponibilidad supervisión', subtitle: 'Resultados por supervisor, día y equipo registrados desde La Guitarra.' },
   calendario: { label: 'Calendario de servicio', title: 'Calendario de servicio', subtitle: 'Servicios programados, proyectados y completados dentro del periodo.' },
   equipos: { label: 'Equipos', title: 'Equipos', subtitle: 'Catálogo consultivo del programa.' },
   reportes: { label: 'Reportes', title: 'Reportes de mantenimiento', subtitle: 'Genera archivos con el periodo, familia y turno seleccionados.' },
@@ -76,6 +77,9 @@ function normalize(payload) {
   }
   // La sección de Diesel es opcional: los paquetes anteriores pueden no incluirla.
   payload.diesel = Array.isArray(payload.diesel) ? payload.diesel.filter(row => row && typeof row === 'object' && !Array.isArray(row)) : [];
+  // Supervisión es una sección opcional para conservar compatibilidad con
+  // los cortes publicados antes de habilitar La Guitarra en la API.
+  payload.supervision = Array.isArray(payload.supervision) ? payload.supervision.filter(row => row && typeof row === 'object' && !Array.isArray(row)) : [];
   // El portal público no procesa órdenes ni evidencias. Esos expedientes
   // permanecen en Mantenimiento hasta contar con acceso privado por usuario.
   payload.work_orders = [];
@@ -1081,6 +1085,50 @@ function renderReportScope(kpiRows, bitacoraRows, calendarRows, equipmentRows) {
   ].map(([label, value]) => `<div class="breakdown-item"><b>${value}</b><span>${label}</span></div>`).join('');
 }
 
+function supervisionRows() {
+  const { family, equipment, shift, query, start, end } = filterValues();
+  return (data.supervision || []).filter(row => {
+    const date = String(row.date || '').slice(0, 10);
+    if (family && row.family !== family) return false;
+    if (equipment && row.equipment !== equipment) return false;
+    if (shift && row.shift !== shift) return false;
+    if (query && !Object.values(row).join(' ').toLocaleLowerCase('es-MX').includes(query)) return false;
+    if (start && date && date < start) return false;
+    if (end && date && date > end) return false;
+    return true;
+  });
+}
+
+function renderSupervision() {
+  const list = supervisionRows();
+  const grouped = new Map();
+  for (const row of list) {
+    const supervisor = String(row.supervisor || row.administrator || 'Sin supervisor').trim() || 'Sin supervisor';
+    const item = grouped.get(supervisor) || { supervisor, rows: [], dates: new Set(), equipment: new Set() };
+    item.rows.push(row);
+    if (row.date) item.dates.add(String(row.date).slice(0, 10));
+    if (row.equipment) item.equipment.add(row.equipment);
+    grouped.set(supervisor, item);
+  }
+  const summary = [...grouped.values()].map(item => ({
+    ...item,
+    availability: average(item.rows, 'availability'), utilization: average(item.rows, 'utilization'),
+    worked: item.rows.reduce((sum, row) => sum + (num(row.worked_hours) || 0), 0),
+    maintenance: item.rows.reduce((sum, row) => sum + (num(row.mp_hours) || 0) + (num(row.mc_hours) || 0), 0)
+  })).sort((a, b) => a.supervisor.localeCompare(b.supervisor, 'es'));
+  const availability = average(list, 'availability');
+  const utilization = average(list, 'utilization');
+  $('supervision-metrics').innerHTML = [
+    metric('Supervisores', summary.length, 'Administradores con registros', '#1476df', '◉'),
+    metric('Capturas sincronizadas', list.length, 'En el periodo consultado', '#f59b18', '▤'),
+    metric('Disponibilidad', availability === null ? '—' : `${fmt(availability)}%`, 'Promedio de supervisión', '#17a76a', '⚙', availability),
+    metric('Utilización', utilization === null ? '—' : `${fmt(utilization)}%`, 'Promedio de supervisión', '#0ba6a7', '◉', utilization)
+  ].join('');
+  setRows('supervision-table', summary, 8, row => `<tr><td><b>${esc(row.supervisor)}</b></td><td>${row.dates.size}</td><td>${row.equipment.size}</td><td>${row.rows.length}</td><td>${fmt(row.availability)}%</td><td>${fmt(row.utilization)}%</td><td>${fmt(row.worked)} h</td><td>${fmt(row.maintenance)} h</td></tr>`);
+  setRows('supervision-detail-table', list.slice().sort((a,b) => String(b.date || '').localeCompare(String(a.date || ''))), 11, row => `<tr><td>${formatDate(row.date)}</td><td><b>${esc(row.supervisor || row.administrator || 'Sin supervisor')}</b></td><td>${esc(row.equipment)}</td><td>${esc(row.family)}</td><td>${esc(row.shift)}</td><td>${fmt(row.availability)}%</td><td>${fmt(row.utilization)}%</td><td>${fmt(row.worked_hours)} h</td><td>${fmt(row.mp_hours)} h</td><td>${fmt(row.mc_hours)} h</td><td>${badge(row.status)}</td></tr>`);
+  $('supervision-count').textContent = `${summary.length} supervisor${summary.length === 1 ? '' : 'es'} · ${list.length} capturas`;
+}
+
 function render() {
   renderOrders();
   const kpiRows = rows('kpi');
@@ -1117,6 +1165,7 @@ function render() {
   renderTop(kpiRows);
   renderShiftComparison(bitacoraRows);
   renderSummary(kpiRows, bitacoraRows, calendarRows);
+  renderSupervision();
   $('kpi-count').textContent = `${kpiByEquipment.length} equipos · ${kpiRows.length} cortes`;
 
   setRows('kpi-table', kpiByEquipment, 9, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0" title="${row.cuts} corte(s) KPI en el periodo"><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${fmt(row.availability)}%</td><td>${fmt(row.utilization)}%</td><td>${fmt(row.worked_hours)}</td><td>${fmt(row.mp_hours)}</td><td>${fmt(row.mc_hours)}</td><td>${fmt(row.stops, 0)}</td><td>${badge(row.status)}</td></tr>`);
@@ -1247,6 +1296,7 @@ function csvExport() {
     ordenes: ['Ordenes', rows('work_orders'), ['number','date','equipment','family','type','status','instructions','correction']],
     equipos: ['Equipos', rows('equipment'), ['code', 'description', 'family', 'status']],
     diesel: ['Diesel', dieselFiltered(), ['date', 'equipment', 'description', 'category', 'department', 'horometer', 'shift', 'shift1', 'shift2', 'shift3', 'liters']],
+    supervision: ['Disponibilidad_supervision', supervisionRows(), ['date', 'supervisor', 'equipment', 'family', 'shift', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'status']],
     reportes: ['KPI', aggregateByEquipment(rows('kpi')), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr', 'cuts']]
   };
   const [name, list, keys] = views[view];

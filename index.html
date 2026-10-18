@@ -23,6 +23,7 @@
     <nav aria-label="Secciones del portal">
       <button class="nav-item active" data-view="inicio"><span>⌂</span> Resumen KPI</button>
       <button class="nav-item" data-view="bitacora"><span>▤</span> Bitácora</button>
+      <button class="nav-item" data-view="supervision"><span>◉</span> Disponibilidad supervisión</button>
       <button class="nav-item" data-view="calendario"><span>▦</span> Calendario de servicio</button>
       <button class="nav-item" data-view="equipos"><span>▣</span> Equipos</button>
       <button class="nav-item" data-view="reportes"><span>▧</span> Reportes</button>
@@ -173,6 +174,13 @@
     <section id="view-bitacora" class="view">
       <div class="section-heading"><div><div class="eyebrow">CAPTURAS OPERATIVAS</div><h2>Bitácora de equipos</h2><p>Lecturas de medidor, horas y estado por fecha y turno.</p></div><span class="count-pill" id="bitacora-count">0 registros</span></div>
       <article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Familia</th><th>Turno</th><th>Componente</th><th>HI</th><th>HF</th><th>Horas trabajadas</th><th>MP</th><th>MC</th><th>Paros</th><th>Estado</th></tr></thead><tbody id="bitacora-table"></tbody></table></div></article>
+    </section>
+
+    <section id="view-supervision" class="view">
+      <div class="section-heading"><div><div class="eyebrow">SEGUIMIENTO DE SUPERVISORES</div><h2>Disponibilidad supervisión</h2><p>Resultados registrados por cada administrador o supervisor de turno.</p></div><span class="count-pill" id="supervision-count">0 supervisores</span></div>
+      <div class="metrics" id="supervision-metrics"></div>
+      <article class="panel"><div class="panel-head"><div><h3>Resumen por supervisor</h3><p>Disponibilidad y utilización promedio dentro del periodo y filtros seleccionados.</p></div></div><div class="table-wrap"><table><thead><tr><th>Supervisor</th><th>Días</th><th>Equipos</th><th>Capturas</th><th>Disponibilidad</th><th>Utilización</th><th>Horas trabajadas</th><th>Mantenimiento</th></tr></thead><tbody id="supervision-table"></tbody></table></div></article>
+      <article class="panel"><div class="panel-head"><div><h3>Detalle por día y equipo</h3><p>Capturas enviadas desde La Guitarra.</p></div></div><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Supervisor</th><th>Equipo</th><th>Familia</th><th>Turno</th><th>Disponibilidad</th><th>Utilización</th><th>Horas trabajadas</th><th>MP</th><th>MC</th><th>Estado</th></tr></thead><tbody id="supervision-detail-table"></tbody></table></div></article>
     </section>
 
     <section id="view-calendario" class="view">
