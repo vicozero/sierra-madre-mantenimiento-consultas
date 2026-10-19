@@ -12,6 +12,7 @@
   <script src="./assets/report-workbook.js" defer></script>
   <script src="./assets/jspdf.bundle.js" defer></script>
   <script src="./app.js" defer></script>
+  <script src="./mechanics.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -24,6 +25,7 @@
       <button class="nav-item active" data-view="inicio"><span>⌂</span> Resumen KPI</button>
       <button class="nav-item" data-view="bitacora"><span>▤</span> Bitácora</button>
       <button class="nav-item" data-view="supervision"><span>◉</span> Disponibilidad supervisión</button>
+      <button class="nav-item" data-view="mecanicos"><span>⚒</span> Bitácora de mecánicos</button>
       <button class="nav-item" data-view="calendario"><span>▦</span> Calendario de servicio</button>
       <button class="nav-item" data-view="equipos"><span>▣</span> Equipos</button>
       <button class="nav-item" data-view="reportes"><span>▧</span> Reportes</button>
@@ -187,6 +189,11 @@
       <article class="panel"><div class="panel-head"><div><h3>Detalle por día y equipo</h3><p>Capturas enviadas desde La Guitarra.</p></div></div><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Supervisor</th><th>Equipo</th><th>Familia</th><th>Turno</th><th>Disponibilidad</th><th>Utilización</th><th>Horas trabajadas</th><th>MP</th><th>MC</th><th>Estado</th></tr></thead><tbody id="supervision-detail-table"></tbody></table></div></article>
     </section>
 
+    <section id="view-mecanicos" class="view">
+      <div class="section-heading"><div><div class="eyebrow">MANTENIMIENTO EN CAMPO</div><h2>Bitácora diaria de mecánicos</h2><p>Consulta el trabajo solicitado, realizado y los materiales de cada reporte.</p></div><a class="button" href="./mecanicos/">Abrir app de captura</a></div>
+      <div class="filters"><label>Día<input id="mechanic-day" type="date"></label><label>Mes<input id="mechanic-month" type="month"></label><label>Año<input id="mechanic-year" type="number" min="2000" max="2100" placeholder="Todos"></label><label>Mecánico<input id="mechanic-person" placeholder="Nombre del ejecutor"></label><label>Equipo<input id="mechanic-equipment" placeholder="Equipo o económico"></label><button id="mechanic-refresh" class="button">Actualizar</button><button id="mechanic-clear" class="button">Limpiar filtros</button></div>
+      <p id="mechanic-count" role="status"></p><div id="mechanic-list"></div>
+    </section>
     <section id="view-calendario" class="view">
       <div class="calendar-toolbar panel">
         <label class="calendar-search"><span>⌕</span><input id="calendar-search" type="search" placeholder="Buscar equipo, servicio o folio..."></label>

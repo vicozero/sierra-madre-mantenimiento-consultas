@@ -12,6 +12,7 @@ let calendarMode = 'month';
 let calendarListMode = false;
 
 const VIEWS = {
+  mecanicos: { label: 'Bitácora de mecánicos', title: 'Bitácora diaria de mecánicos', subtitle: 'Órdenes de trabajo, reparaciones y materiales por fecha, equipo y ejecutor.' },
   inicio: { label: 'Resumen KPI', title: 'Información del programa', subtitle: 'KPI, bitácora y calendario de servicio en una sola página.' },
   bitacora: { label: 'Bitácora', title: 'Bitácora de equipos', subtitle: 'Lecturas de medidor, horas y estado por fecha y turno.' },
   supervision: { label: 'Disponibilidad supervisión', title: 'Disponibilidad supervisión', subtitle: 'Resultados por supervisor, día y equipo registrados desde La Guitarra.' },
@@ -138,7 +139,7 @@ function rowCode(section, row) {
 function rows(section) {
   const { family, equipment, shift, status, condition, type, query, start, end } = filterValues();
   return (data[section] || []).filter(row => {
-    if (section === 'bitacora' && isSupervisionTransport(row)) return false;
+    if (section === 'bitacora' && (isSupervisionTransport(row) || String(row.component || '').startsWith('MECANICO|'))) return false;
     if (family && row.family !== family) return false;
     if (equipment && rowCode(section, row) !== equipment) return false;
     if (shift && section === 'bitacora' && row.shift !== shift) return false;
@@ -1409,6 +1410,7 @@ function selectView(element) {
   const next = element.dataset.view;
   if (!VIEWS[next]) return;
   view = next;
+  history.replaceState(null, '', '#' + view);
   document.body.classList.toggle('calendar-open', view === 'calendario');
   if (view === 'calendario' && $('date-end').value) {
     $('search').value = '';
@@ -1428,6 +1430,8 @@ function selectView(element) {
 }
 
 document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => selectView(button)));
+if (VIEWS[location.hash.slice(1)]) selectView({dataset:{view:location.hash.slice(1)}});
+window.addEventListener('hashchange', () => { if(VIEWS[location.hash.slice(1)]) selectView({dataset:{view:location.hash.slice(1)}}); });
 ['search', 'family-filter', 'equipment-filter', 'shift-filter', 'status-filter', 'condition-filter', 'type-filter', 'date-start', 'date-end'].forEach(id => {
   $(id).addEventListener(id === 'search' ? 'input' : 'change', render);
 });
