@@ -13,7 +13,6 @@
   <script src="./assets/report-workbook.js" defer></script>
   <script src="./assets/jspdf.bundle.js" defer></script>
   <script src="./app.js" defer></script>
-  <script src="./mechanics.js" defer></script>
   <script src="./supervision-videos.js" defer></script>
 </head>
 <body>
@@ -27,7 +26,7 @@
       <button class="nav-item active" data-view="inicio"><span>⌂</span> Resumen KPI</button>
       <button class="nav-item" data-view="bitacora"><span>▤</span> Bitácora</button>
       <button class="nav-item" data-view="supervision"><span>◉</span> Disponibilidad supervisión</button>
-      <button class="nav-item" data-view="mecanicos"><span>⚒</span> Bitácora de mecánicos</button>
+      <button class="nav-item" data-view="vehiculos"><span>⛟</span> Vehículos ligeros</button>
       <button class="nav-item" data-view="calendario"><span>▦</span> Calendario de servicio</button>
       <button class="nav-item" data-view="equipos"><span>▣</span> Equipos</button>
       <button class="nav-item" data-view="reportes"><span>▧</span> Reportes</button>
@@ -191,10 +190,31 @@
       <article class="panel"><div class="panel-head"><div><h3>Detalle por día y equipo</h3><p>Capturas enviadas desde La Guitarra.</p></div></div><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Supervisor</th><th>Equipo</th><th>Familia</th><th>Turno</th><th>Disponibilidad</th><th>Utilización</th><th>Horas trabajadas</th><th>MP</th><th>MC</th><th>Estado</th></tr></thead><tbody id="supervision-detail-table"></tbody></table></div></article>
     </section>
 
-    <section id="view-mecanicos" class="view">
-      <div class="section-heading"><div><div class="eyebrow">MANTENIMIENTO EN CAMPO</div><h2>Bitácora diaria de mecánicos</h2><p>Consulta el trabajo solicitado, realizado y los materiales de cada reporte.</p></div><a class="button" href="./mecanicos/">Abrir app de captura</a></div>
-      <div class="filters"><label>Día<input id="mechanic-day" type="date"></label><label>Mes<input id="mechanic-month" type="month"></label><label>Año<input id="mechanic-year" type="number" min="2000" max="2100" placeholder="Todos"></label><label>Mecánico<input id="mechanic-person" placeholder="Nombre del ejecutor"></label><label>Equipo<input id="mechanic-equipment" placeholder="Equipo o económico"></label><button id="mechanic-refresh" class="button">Actualizar</button><button id="mechanic-clear" class="button">Limpiar filtros</button></div>
-      <p id="mechanic-count" role="status"></p><div id="mechanic-list"></div>
+    <section id="view-vehiculos" class="view">
+      <div class="section-heading"><div><div class="eyebrow">PREVENTIVOS VEHICULARES</div><h2>Vehículos ligeros</h2><p>Servicios preventivos programados y realizados, sincronizados desde el programa.</p></div><span class="count-pill" id="vehicles-count">0 servicios</span></div>
+      <div class="filters">
+        <label>Mes<input id="vehicle-month" type="month"></label>
+        <label class="calendar-filter"><span>Estado</span><select id="vehicle-status"><option value="">Todos los estados</option></select></label>
+        <label class="calendar-filter"><span>Departamento</span><select id="vehicle-department"><option value="">Todos los departamentos</option></select></label>
+        <label class="calendar-filter"><span>Vehículo</span><select id="vehicle-equipment"><option value="">Todos los vehículos</option></select></label>
+        <button class="button" id="vehicle-prev" aria-label="Mes anterior">‹</button>
+        <button class="button" id="vehicle-next" aria-label="Mes siguiente">›</button>
+        <button class="button" id="vehicle-today">Hoy</button>
+      </div>
+      <div class="metrics" id="vehicle-metrics"></div>
+      <article class="panel">
+        <div class="panel-head"><div><h3 id="vehicle-almanac-title">Almanaque del mes</h3><p>Servicios por día. El color indica el estado del servicio.</p></div>
+          <div class="calendar-view-switch" role="group" aria-label="Vista de vehículos"><button data-vehicle-view="almanac" class="active">Almanaque</button><button data-vehicle-view="gantt">Gantt</button><button data-vehicle-view="list">Lista</button></div>
+        </div>
+        <div class="calendar-weekdays"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div>
+        <div id="vehicle-almanac" class="service-calendar-grid"></div>
+        <div id="vehicle-gantt" class="vehicle-gantt" hidden></div>
+        <div id="vehicle-list" hidden></div>
+      </article>
+      <article class="panel">
+        <div class="panel-head"><div><h3>Equipos con servicio realizado</h3><p>Vehículos que ya tienen servicio terminado en el periodo publicado.</p></div><span class="count-pill" id="vehicle-done-count">0 equipos</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Vehículo</th><th>Descripción</th><th>Departamento</th><th>Servicio</th><th>Programado</th><th>Realizado</th><th>Kilometraje</th><th>OT</th><th>Estado</th></tr></thead><tbody id="vehicle-done-table"></tbody></table></div>
+      </article>
     </section>
     <section id="view-calendario" class="view">
       <div class="calendar-toolbar panel">

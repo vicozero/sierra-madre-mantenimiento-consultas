@@ -1,5 +1,5 @@
 const API_URL = 'https://sierra-madre-consulta-api.feywren128.chatgpt.site/api/portal';
-const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [], supervision: [] };
+const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [], supervision: [], light_vehicles: [] };
 const PALETTE = ['#1476df', '#31ad72', '#f6be25', '#f28a27', '#8052e8', '#0ba6a7', '#75869a'];
 let data = structuredClone(EMPTY);
 let view = 'inicio';
@@ -10,12 +10,13 @@ let reportPeriod = null;
 let calendarAnchor = new Date();
 let calendarMode = 'month';
 let calendarListMode = false;
+let vehicleViewMode = 'almanac';
 
 const VIEWS = {
-  mecanicos: { label: 'Bitácora de mecánicos', title: 'Bitácora diaria de mecánicos', subtitle: 'Órdenes de trabajo, reparaciones y materiales por fecha, equipo y ejecutor.' },
   inicio: { label: 'Resumen KPI', title: 'Información del programa', subtitle: 'KPI, bitácora y calendario de servicio en una sola página.' },
   bitacora: { label: 'Bitácora', title: 'Bitácora de equipos', subtitle: 'Lecturas de medidor, horas y estado por fecha y turno.' },
   supervision: { label: 'Disponibilidad supervisión', title: 'Disponibilidad supervisión', subtitle: 'Resultados por supervisor, día y equipo registrados desde La Guitarra.' },
+  vehiculos: { label: 'Vehículos ligeros', title: 'Preventivos vehiculares', subtitle: 'Almanaque, Gantt y servicios realizados de la flota ligera.' },
   calendario: { label: 'Calendario de servicio', title: 'Calendario de servicio', subtitle: 'Servicios programados, proyectados y completados dentro del periodo.' },
   equipos: { label: 'Equipos', title: 'Equipos', subtitle: 'Catálogo consultivo del programa.' },
   reportes: { label: 'Reportes', title: 'Reportes de mantenimiento', subtitle: 'Genera archivos con el periodo, familia y turno seleccionados.' },
@@ -81,6 +82,9 @@ function normalize(payload) {
   // Supervisión es una sección opcional para conservar compatibilidad con
   // los cortes publicados antes de habilitar La Guitarra en la API.
   payload.supervision = Array.isArray(payload.supervision) ? payload.supervision.filter(row => row && typeof row === 'object' && !Array.isArray(row)) : [];
+  // Vehículos ligeros: sección opcional. Los cortes anteriores al módulo de
+  // preventivos vehiculares pueden no incluirla; el portal seguirá funcionando.
+  payload.light_vehicles = Array.isArray(payload.light_vehicles) ? payload.light_vehicles.filter(row => row && typeof row === 'object' && !Array.isArray(row)) : [];
   // El portal público no procesa órdenes ni evidencias. Esos expedientes
   // permanecen en Mantenimiento hasta contar con acceso privado por usuario.
   payload.work_orders = [];
@@ -1145,6 +1149,170 @@ function renderSupervision() {
   $('supervision-count').textContent = `${summary.length} supervisor${summary.length === 1 ? '' : 'es'} · ${list.length} capturas`;
 }
 
+function vehicleStatusKey(value) {
+  const status = normStatus(value);
+  if (/cancel/.test(status)) return 'cancelled';
+  if (/fuera de servicio/.test(status)) return 'critical';
+  if (/venc|atras/.test(status)) return 'overdue';
+  if (/termin|complet|realiz|ejecut/.test(status)) return 'done';
+  if (/proceso|ejecuci/.test(status)) return 'progress';
+  if (/program/.test(status)) return 'planned';
+  if (/propuesta/.test(status)) return 'proposed';
+  return 'planned';
+}
+
+function vehicleStatusColor(key) {
+  return ({
+    done: '#07805d', progress: '#b87911', overdue: '#c33146', critical: '#b91c1c',
+    cancelled: '#8c4953', proposed: '#64748b', planned: '#087fba'
+  })[key] || '#087fba';
+}
+
+let vehicleAnchor = null;
+
+function vehicleMonthValue() {
+  const raw = $('vehicle-month').value;
+  if (/^\d{4}-\d{2}$/.test(raw)) return raw;
+  const ref = vehicleAnchor || new Date();
+  return `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function vehicleSetAnchorFromInput() {
+  const [year, month] = vehicleMonthValue().split('-').map(Number);
+  vehicleAnchor = new Date(year, month - 1, 1);
+}
+
+function vehicleRows() {
+  // El plan vehicular se distribuye por su propia fecha; no aplica el rango KPI.
+  const month = vehicleMonthValue();
+  const status = $('vehicle-status').value;
+  const department = $('vehicle-department').value;
+  const equipment = $('vehicle-equipment').value;
+  return (data.light_vehicles || []).filter(row => {
+    if (month && String(row.date || '').slice(0, 7) !== month) return false;
+    if (status && normStatus(row.status) !== status) return false;
+    if (department && String(row.department || '') !== department) return false;
+    if (equipment && String(row.equipment || '') !== equipment) return false;
+    return true;
+  });
+}
+
+function vehicleDates() {
+  const [year, month] = vehicleMonthValue().split('-').map(Number);
+  const first = new Date(year, month - 1, 1);
+  const start = weekStart(first);
+  return Array.from({ length: 42 }, (_, i) => { const date = new Date(start); date.setDate(start.getDate() + i); return date; });
+}
+
+function fillVehicleFilters() {
+  const all = data.light_vehicles || [];
+  const statuses = [...new Set(all.map(row => String(row.status || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  fillSelect('vehicle-status', statuses.map(value => [normStatus(value), value]), 'Todos los estados');
+  $('vehicle-status').innerHTML = '<option value="">Todos los estados</option>' + statuses.map(value => `<option value="${esc(normStatus(value))}">${esc(value)}</option>`).join('');
+  const departments = [...new Set(all.map(row => String(row.department || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  fillSelect('vehicle-department', departments.map(value => [value, value]), 'Todos los departamentos');
+  const codes = [...new Set(all.map(row => String(row.equipment || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  fillSelect('vehicle-equipment', codes.map(value => [value, value]), 'Todos los vehículos');
+}
+
+function renderVehicles() {
+  if (!vehicleAnchor) vehicleSetAnchorFromInput();
+  if (!$('vehicle-month').value) $('vehicle-month').value = vehicleMonthValue();
+  const month = vehicleMonthValue();
+  const monthLabel = calendarTitle(vehicleAnchor);
+  const monthRows = vehicleRows();
+  const done = monthRows.filter(row => vehicleStatusKey(row.status) === 'done');
+  const pending = monthRows.filter(row => ['planned', 'proposed', 'progress'].includes(vehicleStatusKey(row.status)));
+  const overdue = monthRows.filter(row => ['overdue', 'critical'].includes(vehicleStatusKey(row.status)));
+  const proposed = monthRows.filter(row => vehicleStatusKey(row.status) === 'proposed');
+
+  $('vehicles-count').textContent = `${monthRows.length} servicio${monthRows.length === 1 ? '' : 's'} en ${monthLabel}`;
+  $('vehicle-almanac-title').textContent = `Almanaque de ${monthLabel}`;
+  $('vehicle-metrics').innerHTML = [
+    metric('Servicios del mes', monthRows.length, monthLabel, '#1476df', '⛟'),
+    metric('Realizados', done.length, 'Servicios terminados', '#17a76a', '✓'),
+    metric('Programados', pending.length, 'Pendientes por ejecutar', '#e0673c', '◷'),
+    metric('Vencidos / fuera', overdue.length, 'Requieren atención', '#c33146', '!'),
+    metric('Propuestas', proposed.length, 'Requieren confirmación', '#64748b', '◇')
+  ].join('');
+
+  const view_mode = vehicleViewMode;
+  $('vehicle-almanac').hidden = view_mode !== 'almanac';
+  $('vehicle-gantt').hidden = view_mode !== 'gantt';
+  $('vehicle-list').hidden = view_mode !== 'list';
+  document.querySelectorAll('[data-vehicle-view]').forEach(button => button.classList.toggle('active', button.dataset.vehicleView === view_mode));
+
+  if (view_mode === 'almanac') renderVehicleAlmanac(monthRows);
+  if (view_mode === 'gantt') renderVehicleGantt(monthRows, vehicleAnchor);
+  if (view_mode === 'list') renderVehicleList(monthRows);
+
+  const doneSorted = done.slice().sort((a, b) => String(b.completed_date || b.date).localeCompare(String(a.completed_date || a.date)));
+  setRows('vehicle-done-table', doneSorted, 9, row => `<tr><td><b>${esc(row.equipment)}</b></td><td>${esc(row.description)}</td><td>${esc(row.department)}</td><td>${esc(row.service)}</td><td>${formatDate(row.date)}</td><td>${formatDate(row.completed_date)}</td><td>${row.completed_meter === null || row.completed_meter === undefined ? '—' : `${fmt(row.completed_meter)} km`}</td><td>${esc(row.work_order || '—')}</td><td>${badge(row.status)}</td></tr>`);
+  $('vehicle-done-count').textContent = `${doneSorted.length} equipo${doneSorted.length === 1 ? '' : 's'}`;
+}
+
+function vehicleEvent(row) {
+  const key = vehicleStatusKey(row.status);
+  const label = row.service || 'Servicio';
+  const title = `${label} · ${row.equipment || ''} · ${row.status || ''}`;
+  return `<div class="service-event ${key === 'done' ? 'done' : ['overdue', 'critical'].includes(key) ? 'urgent' : 'planned'}" style="border-left:3px solid ${vehicleStatusColor(key)}" title="${esc(title)}"><span class="service-event-title">${esc(label)}</span><span class="service-event-equipment">${esc(row.equipment || 'Vehículo')}</span><span class="service-event-meta">${esc(row.status || 'Programado')}</span></div>`;
+}
+
+function renderVehicleAlmanac(list) {
+  const days = vehicleDates();
+  const [year, month] = vehicleMonthValue().split('-').map(Number);
+  $('vehicle-almanac').innerHTML = days.map(date => {
+    const iso = isoDate(date);
+    const dayRows = list.filter(row => String(row.date || '').slice(0, 10) === iso);
+    const inMonth = date.getMonth() === month - 1;
+    const isToday = date.toDateString() === new Date().toDateString();
+    const cells = dayRows.slice(0, 3).map(vehicleEvent).join('');
+    const more = dayRows.length > 3 ? `<span class="calendar-more">+${dayRows.length - 3} más</span>` : '';
+    const empty = !dayRows.length ? '<span class="calendar-no-service">Sin servicios</span>' : '';
+    return `<div class="calendar-day ${inMonth ? '' : 'outside'} ${isToday ? 'today' : ''}"><b class="calendar-date">${date.getDate()}</b>${cells}${more}${empty}</div>`;
+  }).join('');
+}
+
+function renderVehicleGantt(list, anchor) {
+  const [year, month] = vehicleMonthValue().split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const rows = list.slice().sort((a, b) => String(a.equipment).localeCompare(String(b.equipment), 'es'));
+  if (!rows.length) { $('vehicle-gantt').innerHTML = '<div class="empty">Sin servicios para estos filtros en el mes.</div>'; return; }
+  const dayHeader = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const weekday = new Date(year, month - 1, day).getDay();
+    const weekend = weekday === 0 || weekday === 6;
+    return `<span class="${weekend ? 'weekend' : ''}">${day}</span>`;
+  }).join('');
+  const body = rows.map(row => {
+    const start = dateAtNoon(row.date);
+    const end = dateAtNoon(row.end_date || row.date) || start;
+    const startDay = start && start.getMonth() === month - 1 ? start.getDate() : null;
+    const endDay = end && end.getMonth() === month - 1 ? end.getDate() : null;
+    const key = vehicleStatusKey(row.status);
+    const color = vehicleStatusColor(key);
+    const cells = Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1;
+      const weekday = new Date(year, month - 1, day).getDay();
+      const weekend = weekday === 0 || weekday === 6;
+      const active = startDay !== null && endDay !== null && day >= startDay && day <= endDay;
+      return `<span class="${weekend ? 'weekend' : ''}">${active ? `<i class="gantt-bar" style="background:${color}" title="${esc(row.equipment)} · ${day} ${monthLabelShort(month)}"></i>` : ''}</span>`;
+    }).join('');
+    return `<div class="gantt-row"><div class="gantt-label"><b>${esc(row.equipment)}</b><small>${esc(row.service)}</small><span class="status ${key === 'done' ? 'green' : ['overdue', 'critical'].includes(key) ? 'red' : 'amber'}">${esc(row.status || '')}</span></div><div class="gantt-days">${cells}</div></div>`;
+  }).join('');
+  $('vehicle-gantt').innerHTML = `<div class="gantt-head"><div class="gantt-label-head">Vehículo / servicio</div><div class="gantt-days">${dayHeader}</div></div>${body}`;
+}
+
+function monthLabelShort(month) {
+  return new Intl.DateTimeFormat('es-MX', { month: 'short' }).format(new Date(2000, month - 1, 1));
+}
+
+function renderVehicleList(list) {
+  const sorted = list.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.equipment).localeCompare(String(b.equipment), 'es'));
+  if (!sorted.length) { $('vehicle-list').innerHTML = '<div class="empty">Sin servicios para estos filtros en el mes.</div>'; return; }
+  $('vehicle-list').innerHTML = `<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Vehículo</th><th>Descripción</th><th>Departamento</th><th>Servicio</th><th>Tipo</th><th>Personal</th><th>Horas</th><th>Estado</th></tr></thead><tbody>${sorted.map(row => `<tr><td>${formatDate(row.date)}</td><td><b>${esc(row.equipment)}</b></td><td>${esc(row.description)}</td><td>${esc(row.department)}</td><td>${esc(row.service)}</td><td>${esc(row.maintenance_type)}</td><td>${esc(row.resource)}</td><td>${fmt(row.hours)}</td><td>${badge(row.status)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
 function render() {
   renderOrders();
   const kpiRows = rows('kpi');
@@ -1182,6 +1350,7 @@ function render() {
   renderShiftComparison(bitacoraRows);
   renderSummary(kpiRows, bitacoraRows, calendarRows);
   renderSupervision();
+  renderVehicles();
   $('kpi-count').textContent = `${kpiByEquipment.length} equipos · ${kpiRows.length} cortes`;
 
   setRows('kpi-table', kpiByEquipment, 9, row => `<tr data-equipment="${esc(row.equipment)}" tabindex="0" title="${row.cuts} corte(s) KPI en el periodo"><td><b>${esc(row.equipment)}</b><br>${esc(row.description)}</td><td>${esc(row.family)}</td><td>${fmt(row.availability)}%</td><td>${fmt(row.utilization)}%</td><td>${fmt(row.worked_hours)}</td><td>${fmt(row.mp_hours)}</td><td>${fmt(row.mc_hours)}</td><td>${fmt(row.stops, 0)}</td><td>${badge(row.status)}</td></tr>`);
@@ -1248,6 +1417,7 @@ function fillFilters() {
   const calendarStatuses = [...new Map(data.calendar.map(row => [normStatus(row.status), String(row.status || '').trim()]).filter(([key, label]) => key && label)).entries()].sort((a,b)=>sort(a[1],b[1]));
   fillSelect('calendar-status', calendarStatuses, 'Todos los estados');
   fillSelect('calendar-type', types.map(type => [type, type]), 'Todos los tipos');
+  fillVehicleFilters();
 }
 
 async function loadLocal(file) {
@@ -1478,6 +1648,20 @@ $('calendar-prev').addEventListener('click', () => moveCalendar(-1));
 $('calendar-next').addEventListener('click', () => moveCalendar(1));
 $('calendar-today').addEventListener('click', () => { const today = new Date(); calendarAnchor = new Date(today.getFullYear(), today.getMonth(), today.getDate()); setCalendarPeriod(); });
 document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEventListener('click', () => { calendarMode = button.dataset.calendarView; renderCalendar(calendarRowsForView()); }));
+
+// Vehículos ligeros (preventivos vehiculares)
+$('vehicle-prev').addEventListener('click', () => moveVehicleMonth(-1));
+$('vehicle-next').addEventListener('click', () => moveVehicleMonth(1));
+$('vehicle-today').addEventListener('click', () => { const today = new Date(); vehicleAnchor = new Date(today.getFullYear(), today.getMonth(), 1); $('vehicle-month').value = vehicleMonthValue(); renderVehicles(); });
+$('vehicle-month').addEventListener('change', () => { vehicleSetAnchorFromInput(); renderVehicles(); });
+['vehicle-status', 'vehicle-department', 'vehicle-equipment'].forEach(id => $(id).addEventListener('change', renderVehicles));
+document.querySelectorAll('[data-vehicle-view]').forEach(button => button.addEventListener('click', () => { vehicleViewMode = button.dataset.vehicleView; renderVehicles(); }));
+function moveVehicleMonth(direction) {
+  vehicleSetAnchorFromInput();
+  vehicleAnchor = new Date(vehicleAnchor.getFullYear(), vehicleAnchor.getMonth() + direction, 1);
+  $('vehicle-month').value = vehicleMonthValue();
+  renderVehicles();
+}
 function moveCalendar(direction) {
   if (calendarMode === 'week') calendarAnchor.setDate(calendarAnchor.getDate() + direction * 7);
   else if (calendarMode === 'day') calendarAnchor.setDate(calendarAnchor.getDate() + direction);
