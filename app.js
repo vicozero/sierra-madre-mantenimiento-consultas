@@ -1453,7 +1453,14 @@ async function refreshData() {
   try {
     const response = await fetch(API_URL, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    data = acceptPackage(await response.json());
+    const rawText = await response.text();
+    let jsonData;
+    try {
+      jsonData = JSON.parse(rawText);
+    } catch {
+      jsonData = null;
+    }
+    data = acceptPackage(jsonData);
     if (data.meta.periodStart) $('date-start').value = data.meta.periodStart;
     if (data.meta.periodEnd) $('date-end').value = data.meta.periodEnd;
     if (data.meta.periodEnd) $('report-anchor-date').value = data.meta.periodEnd;
