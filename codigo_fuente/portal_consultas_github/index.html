@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sierra Madre - Portal Empresarial de Mantenimiento</title>
+  <link rel="icon" href="./assets/logo.png">
+  <link rel="stylesheet" href="./styles.css?v=20261106">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js" defer></script>
+</head>
+<body>
+  <!-- ============ Contenedor Principal ============ -->
+  <div id="__next">
+    
+    <!-- ============ Sidebar (Menú Lateral) ============ -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-area">
+        <div class="brand" id="sidebar-brand">
+          <img class="brand-mark" src="./assets/logo.png" alt="Logo Sierra Madre">
+          <span>
+            <b>SIERRA MADRE</b>
+            <small>MANTENIMIENTO</small>
+          </span>
+        </div>
+      </div>
+      
+      <!-- Toggle para mobile -->
+      <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+      
+      <div class="side-caption">MENÚ PRINCIPAL</div>
+      
+      <nav id="main-nav">
+        <!-- Menú principal - sera pobado por JavaScript -->
+      </nav>
+      
+      <div class="side-status" id="status-bar">
+        <span class="status-dot"></span>
+        <span><b id="connection-label">Conectando</b><small id="data-status">Consultando programa…</small></span>
+      </div>
+      
+      <div class="side-motto" id="side-motto">MANTENEMOS<br>LA OPERACIÓN<br>EN MOVIMIENTO</div>
+    </aside>
+    
+    <!-- ============ Área Principal ============ -->
+    <main class="main" id="main">
+      <!-- ============ Topbar / Header ============ -->
+      <header class="topbar" id="topbar">
+        <div class="breadcrumb">
+          Sierra Madre <span>/</span> <b id="breadcrumb-current">Resumen KPI</b>
+        </div>
+        <div class="user-panel">
+          <div class="user-avatar" id="user-avatar">SM</div>
+          <div>
+            <div class="user-name" id="user-name">Consulta</div>
+            <div class="user-role" id="user-role">Mantenimiento</div>
+          </div>
+        </div>
+        <div class="search-box">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="M21 21l-4.3-4.3"></path>
+          </svg>
+          <input type="search" placeholder="Buscar equipo o servicio…" autocomplete="off">
+        </div>
+      </header>
+      
+      <!-- ============ Contenido ============ -->
+      <section class="content" id="content">
+        <!-- Dashboard / Centro de Control -->
+        <section class="dashboard" id="dashboard-section">
+          <div class="kpi-grid" id="kpi-grid">
+            <!-- KPIs se poblarán por JS -->
+          </div>
+          
+          <!-- Gráficas principales -->
+          <div class="charts-grid" id="charts-grid">
+            <div class="chart-card" id="main-donut-card">
+              <div class="chart-title">Disponibilidad General</div>
+              <div id="main-donut" class="chart-container"></div>
+            </div>
+            
+            <div class="chart-card">
+              <div class="chart-title">Órdenes por Estado</div>
+              <div id="orders-status" class="chart-container"></div>
+            </div>
+            
+            <div class="chart-card">
+              <div class="chart-title">Tendencia 30 Días</div>
+              <div id="trend-30d" class="chart-container"></div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- Secundario: Últimas Órdenes y Alertas -->
+        <section class="secondary-section" id="secondary-section" style="display: none;">
+          <div class="kpi-grid" style="grid-template-columns: 1fr 1fr;">
+            <!-- Últimas Órdenes -->
+            <div class="kpi-card">
+              <div>
+                <div class="kpi-label">Últimas Órdenes</div>
+                <div class="kpi-value" id="last-orders-count">0</div>
+              </div>
+              <a href="#" class="text-link small" style="color: var(--blue);">Ver todas</a>
+            </div>
+            
+            <!-- Alertas -->
+            <div class="kpi-card">
+              <div>
+                <div class="kpi-label">Alertas</div>
+                <div class="kpi-value" id="alerts-count">0</div>
+                <span class="status-badge warning">Pendientes</span>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- Tabla de datos -->
+        <section class="data-section" id="data-section" style="display: none;">
+          <h3 class="section-heading">Tabla de Datos <small>Ordenar / Filtrar</small></h3>
+          <div class="data-table-wrapper">
+            <table class="data-table" id="data-table">
+              <thead>
+                <tr>
+                  <th data-label="Equipo">Equipo</th>
+                  <th data-label="Familia">Familia</th>
+                  <th data-label="Estado">Estado</th>
+                  <th data-label="Disponibilidad">Disponibilidad</th>
+                  <th data-label="Último Servicio">Último Servicio</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Filas se poblarán por JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ============ Inicialización del Portal ============
+    document.addEventListener('DOMContentLoaded', function() {
+      initPortal();
+    });
+    
+    function initPortal() {
+      // 1. Inicializar menú lateral
+      initSidebar();
+      
+      // 2. Inicializar KPIs y dashboard
+      initDashboard();
+      
+      // 3. Cargar datos iniciales
+      loadInitialData();
+      
+      // 4. Configurar event listeners
+      setupEventListeners();
+    }
+    
+    // ============ Menú Lateral ============
+    function initSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const main = document.querySelector('.main');
+      const topbar = document.getElementById('topbar');
+      const navToggle = document.getElementById('nav-toggle');
+      
+      // Toggle en mobile
+      navToggle.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+        main.classList.toggle('overlay');
+      });
+      
+      // Cerrar al hacer click en un enlace (mobile)
+      const navItems = sidebar.querySelectorAll('.nav-item');
+      navItems.forEach(item => {
+        item.addEventListener('click', function() {
+          if (window.innerWidth <= 1200) {
+            sidebar.classList.remove('open');
+            main.classList.remove('overlay');
+          }
+        });
+      });
+      
+      // Toggle click en brand (desktop)
+      const brand = document.getElementById('sidebar-brand');
+      if (brand) {
+        brand.addEventListener('click', function() {
+          sidebar.classList.toggle('collapsed');
+          main.classList.toggle('collapsed');
+          topbar.classList.toggle('collapsed');
+        });
+      }
+      
+      // Inicializar items de menú
+      initNavItems();
+    }
+    
+    function initNavItems() {
+      // Definir items de menú
+      const navItems = [
+        { key: 'inicio', label: 'Inicio', icon: 'home' },
+        { key: 'operacion', label: 'Operación', icon: 'truck', submenu: [
+          { key: 'captura', label: 'Captura Diaria' },
+          { key: 'horometros', label: 'Horómetros' },
+          { key: 'bitacora', label: 'Bitácora' },
+          { key: 'ordenes', label: 'Órdenes de Trabajo' },
+        ]},
+        { key: 'mantenimiento', label: 'Mantenimiento', icon: 'wrench', submenu: [
+          { key: 'gamas', label: 'Gamas Preventivas' },
+          { key: 'servicios', label: 'Servicios Preventivos' },
+          { key: 'inspecciones', label: 'Inspecciones' },
+        ]},
+        { key: 'planeacion', label: 'Planeación', icon: 'calendar', submenu: [
+          { key: 'calendario', label: 'Calendario Preventivo' },
+          { key: 'backlog', label: 'Backlog' },
+        ]},
+        { key: 'almacen', label: 'Almacén', icon: 'box', submenu: [
+          { key: 'inventario', label: 'Inventario' },
+          { key: 'refacciones', label: 'Refacciones' },
+        ]},
+        { key: 'reportes', label: 'Reportes', icon: 'file-text', submenu: [
+          { key: 'kpi', label: 'KPIs' },
+          { key: 'disponibilidad', label: 'Disponibilidad' },
+          { key: 'costos', label: 'Costos' },
+        ]},
+        { key: 'admin', label: 'Administración', icon: 'users', submenu: [
+          { key: 'usuarios', label: 'Usuarios' },
+          { key: 'auditoria', label: 'Auditoría' },
+        ]}
+      ];
+      
+      const navContainer = document.getElementById('main-nav');
+      if (!navContainer) return;
+      
+      let html = '';
+      for (const [key, item] of Object.entries(navItems)) {
+        html += `<li class="nav-item" data-key="${key}" ${key === 'inicio' ? 'class="active"' : ''}>
+          <a href="#" class="nav-link">
+            <span class="nav-icon">${item.icon}</span>
+            <span class="nav-text">${item.label}</span>
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </li>`;
+      }
+      navContainer.innerHTML = html;
+      
+      // Event listeners para items
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.addEventListener('click', function() {
+          const key = this.dataset.key;
+          changeView(key);
+          updateActiveNav(key);
+          // Cerrar menú mobile
+          const sidebar = document.getElementById('sidebar');
+          if (window.innerWidth <= 1200) {
+            sidebar.classList.remove('open');
+          }
+        });
+      });
+    }
+    
+    function changeView(viewKey) {
+      // Ocultar todas las secciones
+      document.querySelectorAll('#dashboard-section, #secondary-section, #data-section').forEach(s => {
+        s.style.display = 'none';
+      });
+      
+      // Mostrar la sección correcta
+      const section = document.getElementById(viewKey + '-section');
+      if (section) {
+        section.style.display = 'block';
+      }
+      
+      // Actualizar breadcrumb
+      const breadcrumbMap = {
+        'inicio': 'Centro de control',
+        'operacion': 'Operación',
+        'mantenimiento': 'Mantenimiento',
+        'planeacion': 'Planeación',
+        'almacen': 'Almacén',
+        'reportes': 'Reportes',
+        'admin': 'Administración'
+      };
+      const breadcrumbText = breadcrumbMap[viewKey] || 'Inicio';
+      document.getElementById('breadcrumb-current').textContent = breadcrumbText;
+    }
+    
+    function updateActiveNav(activeKey) {
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.key === activeKey);
+      });
+    }
+    
+    // ============ Dashboard / KPIs ============
+    function initDashboard() {
+      // Datos de ejemplo (serán reemplazados por datos reales)
+      const kpiData = {
+        disponibilidad: 94,
+        cumplimiento: 87,
+        ordenesAbiertas: 245,
+        serviciosVencidos: 12,
+        equiposFueraServicio: 5,
+        backlog: 382,
+      };
+      
+      // Renderizar KPI cards
+      const kpiGrid = document.getElementById('kpi-grid');
+      if (kpiGrid) {
+        kpiGrid.innerHTML = `
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-label">Disponibilidad Mecánica</div>
+              <div class="kpi-value">${kpiData.disponibilidad}%</div>
+            </div>
+            <div class="status-badge normal">${kpiData.disponibilidad >= 90 ? 'Excelente' : kpiData.disponibilidad >= 80 ? 'Buena' : 'Requiere Atención'}</div>
+          </div>
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-label">Cumplimiento Preventivo</div>
+              <div class="kpi-value">${kpiData.cumplimiento}%</div>
+            </div>
+            <div class="status-badge good">${kpiData.cumplimiento >= 85 ? 'Excelente' : kpiData.cumplimiento >= 75 ? 'Buena' : 'Requiere Atención'}</div>
+          </div>
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-label">Órdenes Abiertas</div>
+              <div class="kpi-value">${kpiData.ordenesAbiertas}</div>
+            </div>
+            <div class="status-badge normal">${kpiData.ordenesAbiertas > 200 ? 'Alta' : kpiData.ordenesAbiertas > 100 ? 'Moderada' : 'Baja'}</div>
+          </div>
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-label">Servicios Vencidos</div>
+              <div class="kpi-value status-badge critical">${kpiData.serviciosVencidos}</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-label">Equipos Fuera de Servicio</div>
+              <div class="kpi-value status-badge critical">${kpiData.equiposFueraServicio}</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-label">Backlog</div>
+              <div class="kpi-value status-badge warning">${kpiData.backlog}</div>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Renderizar gráfico de donut principal
+      renderMainDonut(kpiData.disponibilidad);
+      
+      // Renderizar gráfico de órdenes por estado
+      renderOrdersStatus();
+      
+      // Verificar sección inicial
+      changeView('inicio');
+    }
+    
+    function renderMainDonut(disponibilidad) {
+      const donutChart = echarts.init(document.getElementById('main-donut'));
+      const option = {
+        tooltip: {
+          formatter: '{a} <br/>{b}: {c} ({d}%)'
+        },
+        legend: {
+          bottom: 10,
+          padding: [0, '50%'],
+          itemGap: 15,
+          textStyle: { color: var(--ink), fontSize: 12 }
+        },
+        series: [{
+          name: 'Disponibilidad',
+          type: 'pie',
+          radius: ['50%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 6,
+            borderColor: '#fff',
+            borderWidth: 2
+          },
+          label: {
+            show: true,
+            position: 'outside',
+            formatter: '{b}: {d}%',
+            fontSize: 14,
+            fontWeight: 500
+          },
+          data: [
+            { value: disponibilidad, name: 'Disponible', itemStyle: { color: '#12a66a' } },
+            { value: 100 - disponibilidad, name: 'No Disponible', itemStyle: { color: '#f59b18' } }
+          ]
+        }]
+      };
+      donutChart.setOption(option);
+    }
+    
+    function renderOrdersStatus() {
+      const ordersData = [
+        { name: 'Programado', value: 120, color: '#31ad72' },
+        { name: 'En proceso', value: 85, color: '#f6be25' },
+        { name: 'Vencido', value: 25, color: '#f59b18' },
+        { name: 'Cancelado', value: 10, color: '#8c4953' },
+      ];
+      
+      const chartDom = document.getElementById('orders-status');
+      if (!chartDom) return;
+      const myChart = echarts.init(chartDom);
+      const option = {
+        tooltip: {
+          formatter: '{a} <br/>{b}: {c} ({d}%)'
+        },
+        legend: {
+          bottom: 10,
+          padding: [0, '15%'],
+          textStyle: { color: var(--ink), fontSize: 12 }
+        },
+        series: [{
+          name: 'Órdenes',
+          type: 'pie',
+          radius: ['40%', '60%'],
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 6,
+            borderColor: '#fff',
+            borderWidth: 1
+          },
+          label: {
+            show: true,
+            position: 'outside',
+            formatter: '{b}: {d}%',
+            fontSize: 12
+          },
+          data: ordersData
+        }]
+      };
+      myChart.setOption(option);
+    }
+    
+    // ============ Event Listeners ============
+    function setupEventListeners() {
+      // Toggle sidebar en resize
+      let resizeTimeout;
+      window.addEventListener('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function() {
+          const sidebar = document.getElementById('sidebar');
+          if (window.innerWidth > 1200) {
+            sidebar.classList.remove('open');
+          }
+        }, 250);
+      });
+      
+      // Cerrar menú mobile al resize
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) {
+        window.addEventListener('resize', function() {
+          if (window.innerWidth > 1200) {
+            sidebar.classList.remove('open');
+            document.getElementById('main').classList.remove('overlay');
+          }
+        });
+      }
+    }
+    
+    // ============ Cargar Datos Iniciales ============
+    function loadInitialData() {
+      // Simular carga de datos
+      setTimeout(() => {
+        document.getElementById('data-status').textContent = 'Conectado';
+        document.getElementById('connection-label').textContent = 'Conectado';
+      }, 500);
+    }
+  </script>
+</body>
+</html>
