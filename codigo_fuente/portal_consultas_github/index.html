@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sierra Madre - Portal Empresarial de Mantenimiento</title>
   <link rel="icon" href="./assets/logo.png">
+  <link rel="manifest" href="./site.webmanifest">
   <link rel="stylesheet" href="./styles.css?v=20261106">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -485,6 +486,36 @@
         document.getElementById('connection-label').textContent = 'Conectado';
       }, 500);
     }
+    // ============ Register Service Worker para modo offline ============
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(registration => {
+            console.log('[SW] Registerado:', registration.scope);
+            // Actualizar estado de conexión UI
+            updateOnlineStatus(navigator.onLine);
+          })
+          .catch(err => {
+            console.error('[SW] Error al registrar Service Worker:', err);
+          });
+      });
+    }
+    
+    function updateOnlineStatus(isOnline) {
+      const statusDot = document.querySelector('.status-dot');
+      const connectionLabel = document.getElementById('connection-label');
+      if (statusDot) {
+        statusDot.classList.toggle('online', isOnline);
+        statusDot.classList.toggle('offline', !isOnline);
+      }
+      if (connectionLabel) {
+        connectionLabel.textContent = isOnline ? 'Conectado' : 'Sin conexión';
+      }
+    }
+    
+    // Escuchar cambios de conectividad
+    window.addEventListener('online', () => updateOnlineStatus(true));
+    window.addEventListener('offline', () => updateOnlineStatus(false));
   </script>
 </body>
 </html>

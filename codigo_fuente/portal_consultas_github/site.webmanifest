@@ -1,0 +1,23 @@
+{
+  "name": "Sierra Madre - Portal de Mantenimiento",
+  "short_name": "Sierra Madre",
+  "description": "Portal de mantenimiento minero empresarial para seguimiento de servicios, preventivos y operatividad",
+  "start_url": "/inicio",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8f9fa",
+  "theme_color": "#1476df",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/static/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
