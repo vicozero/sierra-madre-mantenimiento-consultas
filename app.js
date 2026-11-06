@@ -1,6 +1,9 @@
-const API_URL = 'https://sierra-madre-consulta-api.feywren128.chatgpt.site/api/portal';
+const API_URL = 'https://sierra-madre-consulta-api.vicozero559.chatgpt.site/api/portal';
 const EMPTY = { meta: { updatedAt: '—' }, equipment: [], kpi: [], bitacora: [], calendar: [], diesel: [], supervision: [], light_vehicles: [] };
 const PALETTE = ['#1476df', '#31ad72', '#f6be25', '#f28a27', '#8052e8', '#0ba6a7', '#75869a'];
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
+let refreshInFlight = false;
+let lastRefreshAttempt = 0;
 let data = structuredClone(EMPTY);
 let view = 'inicio';
 const REPORT_BRAND = 'SIERRA MADRE';
@@ -1443,15 +1446,22 @@ async function loadLocal(file) {
 
 function setConnection(online, message) {
   $('connection-label').textContent = online ? 'Conectado' : 'Sin conexión';
+  $('load-data').hidden = online;
   $('data-status').textContent = message;
   document.querySelector('.status-dot').classList.toggle('offline', !online);
 }
 
-async function refreshData() {
+async function refreshData(options = {}) {
+  if (refreshInFlight) return;
+  refreshInFlight = true;
+  lastRefreshAttempt = Date.now();
+  const silent = options.silent === true;
   const button = $('refresh-data');
   button.classList.add('spinning');
+  button.disabled = true;
+  $('calendar-refresh').disabled = true;
   try {
-    const response = await fetch(API_URL, { cache: 'no-store' });
+    const response = await fetch(API_URL, { cache: 'no-store', signal: AbortSignal.timeout(25000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const rawText = await response.text();
     let jsonData;
@@ -1460,24 +1470,28 @@ async function refreshData() {
     } catch {
       jsonData = null;
     }
+    const firstLoad = !data.schema;
     data = acceptPackage(jsonData);
-    if (data.meta.periodStart) $('date-start').value = data.meta.periodStart;
-    if (data.meta.periodEnd) $('date-end').value = data.meta.periodEnd;
-    if (data.meta.periodEnd) $('report-anchor-date').value = data.meta.periodEnd;
+    if (firstLoad && data.meta.periodStart) $('date-start').value = data.meta.periodStart;
+    if (firstLoad && data.meta.periodEnd) $('date-end').value = data.meta.periodEnd;
+    if (firstLoad && data.meta.periodEnd) $('report-anchor-date').value = data.meta.periodEnd;
     fillFilters();
     $('public-notice').hidden = true;
     setConnection(true, `${data.meta?.periodStart || '—'} a ${data.meta?.periodEnd || '—'}`);
     render();
-    toast('Información actualizada desde el programa.');
+    if (!silent) toast('Información actualizada desde el programa.');
   } catch (error) {
     $('public-notice').hidden = false;
     setConnection(false, data.schema ? 'Sin conexión; se conserva el último corte válido' : 'Sin datos; revisa conexión o importa un paquete');
     $('connection-label').textContent = error instanceof TypeError ? 'Sin conexión' : 'No actualizado';
     $('connection-error-title').textContent = data.schema ? 'No se pudo actualizar el portal' : 'No hay conexión con el último corte publicado';
     $('connection-error-detail').textContent = `${error.message || 'Error de red o respuesta inválida.'} ${data.schema ? `Se conserva el corte generado el ${formatDateTime(data.meta?.updatedAt)}.` : 'Comprueba internet o abre un JSON válido exportado por Mantenimiento.exe.'}`;
-    toast(`No se pudo actualizar: ${error.message}`);
+    if (!silent) toast(`No se pudo actualizar: ${error.message}`);
   } finally {
     button.classList.remove('spinning');
+    button.disabled = false;
+    $('calendar-refresh').disabled = false;
+    refreshInFlight = false;
   }
 }
 
@@ -2514,3 +2528,10 @@ $('diesel-clear-filters').addEventListener('click', () => {
 
 render();
 refreshData();
+
+// Actualiza sólo la consulta pública; no modifica información del programa.
+setInterval(() => { if (!document.hidden) refreshData({ silent: true }); }, AUTO_REFRESH_MS);
+window.addEventListener('online', () => refreshData({ silent: true }));
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && Date.now() - lastRefreshAttempt >= AUTO_REFRESH_MS) refreshData({ silent: true });
+});
