@@ -1,0 +1,190 @@
+[
+  {
+    "archivo": ".gitattributes",
+    "sha256": "92d070b619d20e81d10c00ac67f55a4ad8dd986506e1239e29f9cea5ce34f4e5"
+  },
+  {
+    "archivo": ".github/workflows/pages.yml",
+    "sha256": "d50a1c9b5f7342298893a79ea70fed6af38694d5631bce54fd76a9d69fa5750e"
+  },
+  {
+    "archivo": ".gitignore",
+    "sha256": "44423ac1d24f452cbddb5edd0f8550a9a05a0a13e54308ee494827e446f8b652"
+  },
+  {
+    "archivo": "README.md",
+    "sha256": "32bba331590150ee1a6909b209e9fe7b22883129a1938549e70639933a91be0a"
+  },
+  {
+    "archivo": "app.js",
+    "sha256": "8b490fd98a10128fbf0178169ae14ca6ee540142db6e14a41a5a3d385b0d671c"
+  },
+  {
+    "archivo": "assets/LICENSE.jszip.markdown",
+    "sha256": "f68719af8e77fe691d97cc27f8fa6775189414cd78c6664c8c983c791046b591"
+  },
+  {
+    "archivo": "assets/enterprise.css",
+    "sha256": "18400a608f5fc52f2b8db6ca671c6b2400d1b38277468a6af52215222840fccd"
+  },
+  {
+    "archivo": "assets/enterprise.js",
+    "sha256": "bf62e3e8774dddd6ffca234af55c90ad9c9108698971ced3095ad264bb870d73"
+  },
+  {
+    "archivo": "assets/jspdf.bundle.js",
+    "sha256": "446faf69f3a13415446aa3a0322eaf615594366d4af202c920c1e5771d301222"
+  },
+  {
+    "archivo": "assets/jszip.min.js",
+    "sha256": "f12f367798e35ee2d9993dba6167fc61ddb52fb89880f5a99fbb606335188410"
+  },
+  {
+    "archivo": "assets/logo.png",
+    "sha256": "e5695a16cdf16c6f949e134759d52e2b1b73d10feaa9e41b70139f6aa66d43b2"
+  },
+  {
+    "archivo": "assets/pptxgen.bundle.js",
+    "sha256": "135ad5b3c18865afc28a4424aa303b0f6c2b1ac280a7fac437f95946446eccfc"
+  },
+  {
+    "archivo": "assets/report-template.bin",
+    "sha256": "a063d702fc4da8c4c6e6e60f038c49a5ce9a1108843edb937d10fe675cbab005"
+  },
+  {
+    "archivo": "assets/report-workbook.js",
+    "sha256": "0ed7344113a84024b228723df3ae059243ee92049c68ecabf57e479df09454cc"
+  },
+  {
+    "archivo": "assets/vendor/InterVariable.woff2",
+    "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
+  },
+  {
+    "archivo": "assets/vendor/LICENSE.echarts.txt",
+    "sha256": "634293835b43a6dd2094fa39182a3d9a6b9ca43b7fdb9ac354e8037af2a3093a"
+  },
+  {
+    "archivo": "assets/vendor/LICENSE.inter.txt",
+    "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+  },
+  {
+    "archivo": "assets/vendor/LICENSE.lucide.txt",
+    "sha256": "1e7290b35280a048667bbf0ebabac1c7fd52a75300e8b2946ac165715997f2bc"
+  },
+  {
+    "archivo": "assets/vendor/echarts.min.js",
+    "sha256": "bf4a223524e40b77c304bec67e1222cf551f14880cf42c69dc046558e11c07b1"
+  },
+  {
+    "archivo": "assets/vendor/lucide.min.js",
+    "sha256": "3411692820cb8d47543f69496aa25fd603a358f4498046f41c508a5a3342210e"
+  },
+  {
+    "archivo": "docs/01_DIAGNOSTICO_Y_PLAN.md",
+    "sha256": "ca3428af23a6c0f4ae983512c36ca9b343c3073a0a43adf72aeb45b7b1740d03"
+  },
+  {
+    "archivo": "docs/02_MAPA_FUNCIONAL.md",
+    "sha256": "229209fd4b7af66abd638a5a0f777506b43e93d5499ab7e0ec9b92a54e28ca89"
+  },
+  {
+    "archivo": "docs/03_ARQUITECTURA_Y_SIGUIENTE_FASE.md",
+    "sha256": "085b433bc7073ff551e625759988336b4cd9c976746e30f2a44948355a31849d"
+  },
+  {
+    "archivo": "docs/04_ENTREGA_Y_RESULTADOS.md",
+    "sha256": "6f8d29155dd69a8dc5d0fe32f50029ad9a47d1f4d34fc1f09c1f6683eb63f127"
+  },
+  {
+    "archivo": "docs/contratos_originales.json",
+    "sha256": "7aad0cd544850846d9457f92403f900dd13ef0e52a586f9bbea1645d0487df8b"
+  },
+  {
+    "archivo": "docs/dependencias_visuales.json",
+    "sha256": "cc6987d0edb0ae1273c11461ca00b2217d304a375002b7ee7c5e97ed11915308"
+  },
+  {
+    "archivo": "docs/evidencia_opencode.json",
+    "sha256": "efcf7ade8298892debe3abc1f3abfae727f447d7ef087d7a9439e0b049ee9346"
+  },
+  {
+    "archivo": "docs/inventario_antes.json",
+    "sha256": "25cc5f99e8fa11d4c35c9af9e48604402e2dfbde058d807b9b019eb4ac0e89e3"
+  },
+  {
+    "archivo": "docs/restauracion_mecanicos.json",
+    "sha256": "ca45e38080be2bc0e8f4444e40dd760ca376ddaed1f24c3d92449b1c26907695"
+  },
+  {
+    "archivo": "docs/vista-centro-control.png",
+    "sha256": "f938e7e6bd335425931f75e75740dc5ecb6907fc4cc5daa00629ff7f6bea084f"
+  },
+  {
+    "archivo": "docs/vista-movil.png",
+    "sha256": "b3ef860f2fe28b6d8aafc0d6301198e7f44b33973ce28f7cc67a60f0c5d893d7"
+  },
+  {
+    "archivo": "index.html",
+    "sha256": "26cf2414aa6aae1cbec166a1e4651e95e34be65501e46329cc7a4b667fa18310"
+  },
+  {
+    "archivo": "mechanics.js",
+    "sha256": "6e06093dd27be0c3debaa720e1136c0ef1b091ea4b679b168788feb1a096667a"
+  },
+  {
+    "archivo": "package-lock.json",
+    "sha256": "7bae1634189560d3a874372f00247ceb4d2c7f0a228a5e2507deb8f2e6bec49e"
+  },
+  {
+    "archivo": "package.json",
+    "sha256": "477e74aebcce7b45b67055a46ffc629b742410647b51277069c4a4d38d82e4ca"
+  },
+  {
+    "archivo": "pruebas/capturas_finales.cjs",
+    "sha256": "5e7bd24203caa8d2f7fed3e840fcb8be9cd00d421ea660740294f57771f14c8e"
+  },
+  {
+    "archivo": "pruebas/inspeccionar_diseno.cjs",
+    "sha256": "138ea15a8dfccf05de22ecae54a932c8879b85a3a318a725ad4b6633c9a8eaa9"
+  },
+  {
+    "archivo": "pruebas/preview.py",
+    "sha256": "027ff1a8bf5325c60f4003ca2033f112ed054528940f8babc73cc0ba4688c336"
+  },
+  {
+    "archivo": "pruebas/regresion_navegador.cjs",
+    "sha256": "7a517cedd74864d7f5d70fcb1acfe4a112cdc99bff55c5f7ffe64cb5c4690bd6"
+  },
+  {
+    "archivo": "pruebas/resultado_capturas.json",
+    "sha256": "d03e6b8117e4f338aa3f2e7e165c7f8ef2d930f4e9673ac7278209b98ad52763"
+  },
+  {
+    "archivo": "pruebas/resultado_integridad.txt",
+    "sha256": "7f5ca2023e7cc5c471af1c06d81619555e645803bcae2ce4a49f5a3f87a3887c"
+  },
+  {
+    "archivo": "pruebas/resultado_regresion.json",
+    "sha256": "3a197c2b21d1da43d3ecd1b0c9d87391ff4535a2b08644fab3d533ef9f124c18"
+  },
+  {
+    "archivo": "pruebas/test_integridad.py",
+    "sha256": "9ac693dd5fed9eb6438a26fbf429a6128fb309a0515ecd53d3a5174ba5da5edd"
+  },
+  {
+    "archivo": "pruebas/validacion_exportaciones.json",
+    "sha256": "f186d9c454a9f0848496870597c6845300fe7c54282d11a259bf86cb49c5c973"
+  },
+  {
+    "archivo": "styles.css",
+    "sha256": "2199139dd22c4daf4c898a6a5071c888f9bfb56ca5a4175124f8c56fe0d34ef8"
+  },
+  {
+    "archivo": "supervision-videos.css",
+    "sha256": "46baed807aff04ea4c24806e1ad924fffc681e308f9a0d045410f60d19c1dd85"
+  },
+  {
+    "archivo": "supervision-videos.js",
+    "sha256": "28c05259adf62f16cd48152c9603f6b113f593f44af0c4800d2e97cd85604414"
+  }
+]

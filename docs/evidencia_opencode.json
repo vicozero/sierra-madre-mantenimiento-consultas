@@ -1,0 +1,7 @@
+{
+  "sha256_app_js": "48ce25a1036dc8265b719e7beb9df6b1179e10d11d98c3503421adda6f88ff75",
+  "bytes": 7825,
+  "node_check_exit_code": 1,
+  "error": "SyntaxError: Unexpected token '='",
+  "referencia": "Respaldo completo conservado fuera de la rama: Reparacion_portal_20261106/opencode_antes_redisenio_20261106.zip"
+}

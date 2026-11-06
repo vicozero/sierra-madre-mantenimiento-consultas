@@ -1,0 +1,38 @@
+[
+  {
+    "archivo": "echarts.min.js",
+    "url": "https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js",
+    "bytes": 1034102,
+    "sha256": "bf4a223524e40b77c304bec67e1222cf551f14880cf42c69dc046558e11c07b1"
+  },
+  {
+    "archivo": "LICENSE.echarts.txt",
+    "url": "https://raw.githubusercontent.com/apache/echarts/5.6.0/LICENSE",
+    "bytes": 11990,
+    "sha256": "634293835b43a6dd2094fa39182a3d9a6b9ca43b7fdb9ac354e8037af2a3093a"
+  },
+  {
+    "archivo": "lucide.min.js",
+    "url": "https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js",
+    "bytes": 357796,
+    "sha256": "3411692820cb8d47543f69496aa25fd603a358f4498046f41c508a5a3342210e"
+  },
+  {
+    "archivo": "LICENSE.lucide.txt",
+    "url": "https://unpkg.com/lucide@0.468.0/LICENSE",
+    "bytes": 880,
+    "sha256": "1e7290b35280a048667bbf0ebabac1c7fd52a75300e8b2946ac165715997f2bc"
+  },
+  {
+    "archivo": "InterVariable.woff2",
+    "url": "https://raw.githubusercontent.com/rsms/inter/v4.1/docs/font-files/InterVariable.woff2",
+    "bytes": 352240,
+    "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3"
+  },
+  {
+    "archivo": "LICENSE.inter.txt",
+    "url": "https://raw.githubusercontent.com/rsms/inter/v4.1/LICENSE.txt",
+    "bytes": 4380,
+    "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+  }
+]

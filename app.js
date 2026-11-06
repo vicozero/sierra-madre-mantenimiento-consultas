@@ -16,6 +16,8 @@ let calendarListMode = false;
 let vehicleViewMode = 'almanac';
 
 const VIEWS = {
+  mecanicos: { label: 'Bitácora de mecánicos', title: 'Bitácora diaria de mecánicos', subtitle: 'Consulta de trabajos publicados por fecha, equipo y ejecutor.' },
+  control: { label: 'Centro de control', title: 'Centro de control', subtitle: 'Confiabilidad, disponibilidad y mantenimiento' },
   inicio: { label: 'Resumen KPI', title: 'Información del programa', subtitle: 'KPI, bitácora y calendario de servicio en una sola página.' },
   bitacora: { label: 'Bitácora', title: 'Bitácora de equipos', subtitle: 'Lecturas de medidor, horas y estado por fecha y turno.' },
   supervision: { label: 'Disponibilidad supervisión', title: 'Disponibilidad supervisión', subtitle: 'Resultados por supervisor, día y equipo registrados desde La Guitarra.' },
@@ -1374,6 +1376,7 @@ function render() {
   renderReportScope(kpiRows, bitacoraRows, calendarRows, equipmentRows);
   updatePrintHead();
   renderDiesel();
+  window.dispatchEvent(new CustomEvent('sm:render'));
 }
 
 function fillSelect(id, options, allLabel) {
@@ -1432,11 +1435,13 @@ async function loadLocal(file) {
     if (data.meta.periodEnd) $('report-anchor-date').value = data.meta.periodEnd;
     fillFilters();
     $('public-notice').hidden = true;
-    setConnection(true, 'Paquete local listo');
+    setConnection(false, 'Paquete local listo; sin confirmar conexión al servidor.');
+    $('connection-label').textContent = 'Paquete local';
     render();
     toast('Paquete abierto localmente; no se envió al sitio.');
   } catch (error) {
-    setConnection(Boolean(data.schema), data.schema ? 'Corte válido conservado' : 'Esperando un paquete válido');
+    setConnection(false, data.schema ? 'Corte válido conservado' : 'Esperando un paquete válido');
+    $('connection-label').textContent = data.schema ? 'Corte conservado' : 'Sin datos';
     $('public-notice').hidden = false;
     $('connection-error-title').textContent = 'No se pudo importar el paquete';
     $('connection-error-detail').textContent = `${error.message} No se sustituyeron los datos que ya estaban cargados.`;
@@ -1449,6 +1454,7 @@ function setConnection(online, message) {
   $('load-data').hidden = online;
   $('data-status').textContent = message;
   document.querySelector('.status-dot').classList.toggle('offline', !online);
+  window.dispatchEvent(new CustomEvent('sm:connection', { detail: { online, message } }));
 }
 
 async function refreshData(options = {}) {
@@ -1506,7 +1512,7 @@ function csvExport() {
     supervision: ['Disponibilidad_supervision', supervisionRows(), ['date', 'supervisor', 'equipment', 'family', 'shift', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'status']],
     reportes: ['KPI', aggregateByEquipment(rows('kpi')), ['date', 'equipment', 'description', 'family', 'availability', 'utilization', 'worked_hours', 'mp_hours', 'mc_hours', 'stops', 'status', 'tmef', 'tmpr', 'cuts']]
   };
-  const [name, list, keys] = views[view];
+  const [name, list, keys] = views[view] || views.inicio;
   if (!list.length) return toast('No hay filas para exportar con estos filtros.');
   const titles = { date: 'Fecha', equipment: 'Equipo', description: 'Descripción', family: 'Familia', category: 'Categoría', department: 'Departamento', horometer: 'Horómetro', shift1: 'Turno 1 (L)', shift2: 'Turno 2 (L)', shift3: 'Turno 3 (L)', availability: 'Disponibilidad %', utilization: 'Utilización %', worked_hours: 'Horas operadas', mp_hours: 'MP h', mc_hours: 'MC h', stops: 'Paros', status: 'Estado', tmef: 'TMEF', tmpr: 'TMPR', shift: 'Turno', component: 'Componente', hi: 'HI', hf: 'HF', standby_hours: 'Stand by h', service: 'Servicio / gama', type: 'Tipo', meter: 'Medidor', target: 'Objetivo', unit: 'Unidad', code: 'Código', cuts: 'Cortes', services: 'Servicios', liters: 'Total litros', hours: 'Horas' };
   const quote = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
@@ -1617,6 +1623,7 @@ function selectView(element) {
   $('page-title').textContent = VIEWS[view].title;
   $('page-subtitle').textContent = VIEWS[view].subtitle;
   updatePrintHead();
+  window.dispatchEvent(new CustomEvent('sm:view', { detail: { view } }));
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

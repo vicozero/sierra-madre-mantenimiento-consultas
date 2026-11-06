@@ -1,0 +1,13 @@
+__pycache__/
+node_modules/
+.venv/
+.env*
+*.db
+*.sqlite
+*.sqlite3
+*.zip
+pruebas/*PRIVADO*
+pruebas/*_privado*
+pruebas/*.log
+pruebas/*.png
+pruebas/inspeccion_inicial.json

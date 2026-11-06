@@ -1,0 +1,5 @@
+# Preserve exact upstream bytes for vendored dependencies and binary assets.
+assets/vendor/** -text
+*.png binary
+*.woff2 binary
+*.bin binary

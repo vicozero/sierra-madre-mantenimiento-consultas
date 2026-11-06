@@ -1,0 +1,7 @@
+{
+  "origen": "b55c6cf^:mechanics.js",
+  "sha256_original": "e160f0a688a8801ce0c815e824d5a249cb027579d9c516f1c734b9820a3a66e0",
+  "sha256_restaurado": "6e06093dd27be0c3debaa720e1136c0ef1b091ea4b679b168788feb1a096667a",
+  "adaptacion": "Consulta reutiliza data.bitacora; sin nueva API ni captura habilitada.",
+  "validacion_adicional": "Se ignoran objetos nulos, inválidos o con fecha imposible antes de renderizar."
+}

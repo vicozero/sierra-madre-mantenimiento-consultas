@@ -5,49 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#092744">
   <meta name="description" content="Portal informativo para consultar los indicadores, bitácora, calendario y equipos de Sierra Madre Mantenimiento.">
-  <title>Consultas de mantenimiento | Sierra Madre</title>
+  <title>SIERRA MADRE · Portal empresarial de mantenimiento</title>
   <link rel="icon" href="./assets/logo.png">
   <link rel="stylesheet" href="./styles.css?v=20261106-api">
   <link rel="stylesheet" href="./supervision-videos.css">
+  <link rel="stylesheet" href="./assets/enterprise.css?v=20261106-1">
+  <script src="./assets/vendor/echarts.min.js" defer></script>
+  <script src="./assets/vendor/lucide.min.js" defer></script>
   <script src="./assets/jszip.min.js" defer></script>
   <script src="./assets/report-workbook.js" defer></script>
   <script src="./assets/jspdf.bundle.js" defer></script>
   <script src="./app.js?v=20261106-api" defer></script>
   <script src="./supervision-videos.js?v=20261106-api" defer></script>
+  <script src="./mechanics.js?v=20261106-restaurado" defer></script>
+  <script src="./assets/enterprise.js?v=20261106-1" defer></script>
 </head>
 <body>
-  <aside class="sidebar">
-    <a class="brand" href="#inicio" aria-label="Sierra Madre Mantenimiento">
-      <img class="brand-mark" src="./assets/logo.png" alt="Logo Sierra Madre">
-      <span><b>SIERRA MADRE</b><small>MANTENIMIENTO</small></span>
-    </a>
-    <div class="side-caption">CONSULTAS DEL PROGRAMA</div>
-    <nav aria-label="Secciones del portal">
-      <button class="nav-item active" data-view="inicio"><span>⌂</span> Resumen KPI</button>
-      <button class="nav-item" data-view="bitacora"><span>▤</span> Bitácora</button>
-      <button class="nav-item" data-view="supervision"><span>◉</span> Disponibilidad supervisión</button>
-      <button class="nav-item" data-view="vehiculos"><span>⛟</span> Vehículos ligeros</button>
-      <button class="nav-item" data-view="calendario"><span>▦</span> Calendario de servicio</button>
-      <button class="nav-item" data-view="equipos"><span>▣</span> Equipos</button>
-      <button class="nav-item" data-view="reportes"><span>▧</span> Reportes</button>
-      <button class="nav-item" data-view="diesel"><span>⛽</span> Diesel</button>
-    </nav>
-    <div class="side-status">
-      <span class="status-dot"></span>
-      <span><b id="connection-label">Conectando</b><small id="data-status">Consultando programa…</small></span>
-    </div>
-    <div class="side-motto">MANTENEMOS<br>LA OPERACIÓN<br>EN MOVIMIENTO</div>
-    <p class="side-foot">Consulta informativa · Solo lectura</p>
+  <a class="skip-link" href="#main-content">Ir al contenido</a>
+  <aside class="sidebar" id="enterprise-sidebar" aria-label="Navegación principal">
+    <a class="enterprise-brand" href="#control" aria-label="Sierra Madre · Centro de control"><img src="./assets/logo.png" alt="Sierra Madre Minería"><span>PORTAL DE MANTENIMIENTO</span></a>
+    <nav id="enterprise-nav" aria-label="Módulos de mantenimiento"></nav>
+    <div class="enterprise-side-foot"><span class="system-led"></span><span>SIERRA MADRE <small>Vista de desarrollo · Consulta</small></span><button id="sidebar-collapse" type="button" aria-label="Plegar menú" aria-expanded="true"><i data-lucide="panel-left-close"></i></button></div>
   </aside>
+  <button class="sidebar-scrim" id="sidebar-scrim" aria-label="Cerrar menú" hidden></button>
 
   <main class="main">
-    <header class="topbar">
-      <div class="crumb">Sierra Madre <span>/</span> <b id="crumb-current">Resumen KPI</b></div>
-      <div class="top-actions">
-        <span class="read-only">SOLO LECTURA</span>
-        <span class="user-chip"><span class="user-icon">SM</span><span><b>Consulta</b><small>Mantenimiento</small></span></span>
-      </div>
+    <header class="topbar enterprise-topbar">
+      <button class="mobile-menu-button" id="mobile-menu" aria-label="Abrir menú" aria-expanded="false"><i data-lucide="menu"></i></button>
+      <div class="project-chip"><i data-lucide="pickaxe"></i><div><small>PROYECTO / UNIDAD</small><strong>MINA LA GUITARRA</strong></div></div>
+      <label class="global-search" for="search"><i data-lucide="search"></i><input id="search" type="search" placeholder="Buscar equipo o servicio…" autocomplete="off"><kbd>/</kbd></label>
+      <div class="side-status enterprise-connection"><span class="status-dot offline"></span><span><b id="connection-label">Conectando</b><small id="data-status">Consultando programa…</small></span></div>
+      <button class="notifications-button" id="enterprise-alerts" aria-label="Consultar servicios prioritarios"><i data-lucide="bell"></i><span id="alert-badge" hidden></span></button>
+      <div class="enterprise-user"><span class="enterprise-avatar"><i data-lucide="user-round"></i></span><div><strong>Consulta</strong><small>Portal del programa</small></div></div>
     </header>
+    <div id="main-content" tabindex="-1"></div>
 
     <div class="print-head" id="print-head">
       <img class="print-logo" src="./assets/logo.png" alt="Logo Sierra Madre">
@@ -60,9 +51,10 @@
       </div>
     </div>
 
+    <div class="enterprise-breadcrumb">Portal empresarial <span>/</span> <b id="crumb-current">Centro de control</b></div>
     <section class="welcome">
       <div>
-        <div class="eyebrow">CONSULTA DE MANTENIMIENTO</div>
+        <div class="eyebrow">SIERRA MADRE · MANTENIMIENTO</div>
         <h1 id="page-title">Información del programa</h1>
         <p id="page-subtitle">KPI, bitácora y calendario de servicio en una sola página.</p>
       </div>
@@ -80,8 +72,9 @@
       <input id="file-input" type="file" accept=".json,application/json" hidden>
     </section>
 
+    <details class="enterprise-filter-drawer" id="enterprise-filters"><summary><span><i data-lucide="sliders-horizontal"></i> Filtros de consulta</span><span id="enterprise-filter-summary">Periodo del programa</span><i data-lucide="chevron-down"></i></summary>
     <section class="filters" aria-label="Filtros de consulta">
-      <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Buscar equipo o servicio…" autocomplete="off"></label>
+
       <label class="filter-field"><span>Familia</span><select id="family-filter"><option value="">Todas las familias</option></select></label>
       <label class="filter-field"><span>Equipo</span><select id="equipment-filter"><option value="">Todos los equipos</option></select></label>
       <label class="filter-field"><span>Turno</span><select id="shift-filter"><option value="">Todos</option></select></label>
@@ -100,6 +93,7 @@
       <button class="button button-primary" id="apply-filters"><span>⟳</span> Actualizar</button>
     </section>
 
+    </details>
     <section class="report-actions">
       <span id="report-period">Esperando el primer corte del programa.</span>
       <span class="data-tag" id="data-tag">SIN DATOS</span>
@@ -107,6 +101,22 @@
         <button class="button button-outline" id="export-excel">⇩ CSV para Excel</button>
         <button class="button button-primary" id="export-pdf">▣ Generar PDF</button>
       </div>
+    </section>
+
+    <section id="view-control" class="view enterprise-control" aria-label="Centro de control">
+      <div class="control-metrics" id="control-metrics"></div>
+      <div class="control-charts">
+        <article class="panel control-trend-panel"><div class="control-panel-head"><div><h2><i data-lucide="chart-no-axes-combined"></i>Disponibilidad mecánica</h2><p id="control-trend-scope">Cortes publicados por el programa</p></div><div class="control-periods" role="group" aria-label="Periodo de tendencia"><button data-trend-days="7" class="active" aria-pressed="true">7 días</button><button data-trend-days="30" aria-pressed="false">30 días</button><button data-trend-days="90" aria-pressed="false">90 días</button></div></div><div id="control-trend-chart" class="control-chart" role="img" aria-label="Tendencia de disponibilidad de los cortes publicados"></div><p class="chart-caption" id="control-trend-note"></p></article>
+        <article class="panel control-orders-panel"><div class="control-panel-head"><h2><i data-lucide="chart-pie"></i>Órdenes de trabajo por estado</h2></div><div id="control-orders-chart" class="control-chart" role="img" aria-label="Disponibilidad de datos de órdenes de trabajo"></div><p class="chart-caption" id="control-orders-note"></p></article>
+        <article class="panel control-alert-panel"><div class="control-panel-head"><h2><i data-lucide="triangle-alert"></i>Alertas prioritarias</h2><button class="control-text-link" data-open-view="calendario">Ver calendario <i data-lucide="arrow-up-right"></i></button></div><div id="control-alert-list" class="control-alert-list"></div></article>
+      </div>
+      <div class="control-operations">
+        <article class="panel control-services-panel"><div class="control-panel-head"><div><h2><i data-lucide="calendar-clock"></i>Servicios por atender</h2><p>Prioridad y fecha del corte publicado</p></div><button class="button button-primary" data-open-view="calendario">Ver calendario <i data-lucide="arrow-right"></i></button></div><div class="table-wrap"><table class="control-services-table"><thead><tr><th>Equipo</th><th>Servicio</th><th>Medidor</th><th>Restante</th><th>Fecha</th><th>Estado</th></tr></thead><tbody id="control-service-rows"></tbody></table></div></article>
+        <div class="control-context"><article class="control-sync-card"><span class="sync-symbol"><i data-lucide="cloud-download"></i></span><div><h3 id="control-sync-title">Consultando el programa</h3><p id="control-sync-date">Esperando el primer corte</p><button id="control-refresh" class="button button-navy"><i data-lucide="refresh-cw"></i>Actualizar consulta</button></div><p class="control-sync-foot">La captura y la cola offline se habilitarán en la fase operativa. Esta vista conserva el modo consulta.</p></article><article class="control-brand-card"><i data-lucide="mountain"></i><strong>Conectados con<br>la operación.</strong><span>Planeación, confiabilidad y mantenimiento en una sola vista.</span><small>SIERRA MADRE · MINERÍA</small></article></div>
+      </div>
+      <div class="control-secondary"><article class="panel"><div class="control-panel-head"><h2><i data-lucide="bar-chart-3"></i>Disponibilidad por familia</h2><button class="control-text-link" data-open-view="inicio">Panel KPI <i data-lucide="arrow-up-right"></i></button></div><div id="control-family-chart" class="control-chart secondary-chart" role="img" aria-label="Disponibilidad por familia según filtros"></div></article><article class="panel"><div class="control-panel-head"><h2><i data-lucide="activity"></i>Paros registrados por corte</h2><span class="subtle-label">Datos publicados</span></div><div id="control-failures-chart" class="control-chart secondary-chart" role="img" aria-label="Paros registrados por fecha del corte"></div></article></div>
+      <div class="control-tertiary"><article class="panel"><div class="control-panel-head"><h2><i data-lucide="shield-alert"></i>Equipos críticos</h2></div><div id="control-critical-list"></div></article><article class="panel"><div class="control-panel-head"><h2><i data-lucide="calendar-check"></i>Próximos mantenimientos</h2></div><div id="control-upcoming-list"></div></article><article class="panel"><div class="control-panel-head"><h2><i data-lucide="database"></i>Alcance del corte</h2></div><dl class="control-scope"><div><dt>Materiales pendientes</dt><dd>No publicados</dd></div><div><dt>Backlog</dt><dd>No publicado</dd></div><div><dt>Capturas web pendientes</dt><dd>No habilitadas en esta fase</dd></div><div><dt>Últimas órdenes</dt><dd>Requieren acceso operativo</dd></div></dl></article></div>
+      <p class="control-data-note"><i data-lucide="info"></i>Los indicadores usan los registros y filtros del programa. Los campos no publicados se muestran sin valor; esta vista no crea datos de demostración.</p>
     </section>
 
     <section id="view-inicio" class="view active-view">
@@ -215,6 +225,11 @@
         <div class="panel-head"><div><h3>Equipos con servicio realizado</h3><p>Vehículos que ya tienen servicio terminado en el periodo publicado.</p></div><span class="count-pill" id="vehicle-done-count">0 equipos</span></div>
         <div class="table-wrap"><table><thead><tr><th>Vehículo</th><th>Descripción</th><th>Departamento</th><th>Servicio</th><th>Programado</th><th>Realizado</th><th>Kilometraje</th><th>OT</th><th>Estado</th></tr></thead><tbody id="vehicle-done-table"></tbody></table></div>
       </article>
+    </section>
+    <section id="view-mecanicos" class="view">
+      <div class="section-heading"><div><div class="eyebrow">MANTENIMIENTO EN CAMPO</div><h2>Bitácora diaria de mecánicos</h2><p>Consulta el trabajo solicitado, realizado y los materiales de cada reporte.</p></div><span class="read-only">Consulta de reportes publicados</span></div>
+      <div class="filters"><label>Día<input id="mechanic-day" type="date"></label><label>Mes<input id="mechanic-month" type="month"></label><label>Año<input id="mechanic-year" type="number" min="2000" max="2100" placeholder="Todos"></label><label>Mecánico<input id="mechanic-person" placeholder="Nombre del ejecutor"></label><label>Equipo<input id="mechanic-equipment" placeholder="Equipo o económico"></label><button id="mechanic-refresh" class="button">Actualizar</button><button id="mechanic-clear" class="button">Limpiar filtros</button></div>
+      <p id="mechanic-count" role="status"></p><div id="mechanic-list"></div>
     </section>
     <section id="view-calendario" class="view">
       <div class="calendar-toolbar panel">

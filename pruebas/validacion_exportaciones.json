@@ -1,0 +1,35 @@
+{
+  "xlsx": {
+    "hojas": [
+      "Resumen",
+      "KPI por equipo",
+      "Bitácora",
+      "Calendario"
+    ],
+    "graficas": 2,
+    "filas": {
+      "Resumen": 7,
+      "KPI por equipo": 7,
+      "Bitácora": 63,
+      "Calendario": 5
+    }
+  },
+  "pptx": {
+    "diapositivas": 19,
+    "familia_filtrada_presente": true,
+    "marcadores_pendientes": 0
+  },
+  "resumen.pdf": {
+    "paginas": 1,
+    "texto_presente": true
+  },
+  "diesel.pdf": {
+    "paginas": 4,
+    "texto_presente": true
+  },
+  "csv": {
+    "filas": 2894,
+    "sin_transportes_mecanicos": true
+  },
+  "ok": true
+}

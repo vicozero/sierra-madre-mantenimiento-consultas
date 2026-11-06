@@ -1,0 +1,81 @@
+[
+  {
+    "archivo": "app.js",
+    "bytes": 146722,
+    "sha256": "57ab39f934bdc2553c21bd5da26931f1917bdcbce8ddbbca6cd95e607b2dead1",
+    "lectura_utf8_correcta": true
+  },
+  {
+    "archivo": "index.html",
+    "bytes": 29519,
+    "sha256": "1b69a8d8c37b4b76d18926c4e9218a7a52679955e83308dd19b9398b2998430a",
+    "lectura_utf8_correcta": true
+  },
+  {
+    "archivo": "README.md",
+    "bytes": 2689,
+    "sha256": "541a9957aceeb5d75d0bec5c669edd20eba56738c6cd165ae33d376c69b22e3a"
+  },
+  {
+    "archivo": "styles.css",
+    "bytes": 44623,
+    "sha256": "2199139dd22c4daf4c898a6a5071c888f9bfb56ca5a4175124f8c56fe0d34ef8",
+    "lectura_utf8_correcta": true
+  },
+  {
+    "archivo": "supervision-videos.css",
+    "bytes": 877,
+    "sha256": "46baed807aff04ea4c24806e1ad924fffc681e308f9a0d045410f60d19c1dd85",
+    "lectura_utf8_correcta": true
+  },
+  {
+    "archivo": "supervision-videos.js",
+    "bytes": 4291,
+    "sha256": "28c05259adf62f16cd48152c9603f6b113f593f44af0c4800d2e97cd85604414",
+    "lectura_utf8_correcta": true
+  },
+  {
+    "archivo": "assets/jspdf.bundle.js",
+    "bytes": 366128,
+    "sha256": "446faf69f3a13415446aa3a0322eaf615594366d4af202c920c1e5771d301222",
+    "lectura_utf8_correcta": true
+  },
+  {
+    "archivo": "assets/jszip.min.js",
+    "bytes": 97642,
+    "sha256": "f12f367798e35ee2d9993dba6167fc61ddb52fb89880f5a99fbb606335188410",
+    "lectura_utf8_correcta": true
+  },
+  {
+    "archivo": "assets/LICENSE.jszip.markdown",
+    "bytes": 34404,
+    "sha256": "f68719af8e77fe691d97cc27f8fa6775189414cd78c6664c8c983c791046b591"
+  },
+  {
+    "archivo": "assets/logo.png",
+    "bytes": 84672,
+    "sha256": "e5695a16cdf16c6f949e134759d52e2b1b73d10feaa9e41b70139f6aa66d43b2"
+  },
+  {
+    "archivo": "assets/pptxgen.bundle.js",
+    "bytes": 460985,
+    "sha256": "135ad5b3c18865afc28a4424aa303b0f6c2b1ac280a7fac437f95946446eccfc",
+    "lectura_utf8_correcta": true
+  },
+  {
+    "archivo": "assets/report-template.bin",
+    "bytes": 83429,
+    "sha256": "a063d702fc4da8c4c6e6e60f038c49a5ce9a1108843edb937d10fe675cbab005"
+  },
+  {
+    "archivo": "assets/report-workbook.js",
+    "bytes": 22766,
+    "sha256": "0ed7344113a84024b228723df3ae059243ee92049c68ecabf57e479df09454cc",
+    "lectura_utf8_correcta": true
+  },
+  {
+    "archivo": ".github/workflows/pages.yml",
+    "bytes": 948,
+    "sha256": "d50a1c9b5f7342298893a79ea70fed6af38694d5631bce54fd76a9d69fa5750e"
+  }
+]

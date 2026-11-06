@@ -1,0 +1,10 @@
+test_original_calculations_and_exports_unchanged (__main__.Integridad.test_original_calculations_and_exports_unchanged) ... ok
+test_original_functions_remain (__main__.Integridad.test_original_functions_remain) ... ok
+test_original_ids_remain_unique (__main__.Integridad.test_original_ids_remain_unique) ... ok
+test_valid_javascript (__main__.Integridad.test_valid_javascript) ... ok
+test_visual_dependencies_local_and_identical (__main__.Integridad.test_visual_dependencies_local_and_identical) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.558s
+
+OK

@@ -1,0 +1,46 @@
+{
+  "checks": [
+    "API real conectada y Centro de control con métricas verificadas, sin cifras ficticias",
+    "Importación de paquete local conserva datos y se distingue de una conexión confirmada",
+    "Gráfica ECharts real: 7, 30 y 90 días",
+    "Filtros de familia aplicados al dashboard y sus contadores",
+    "Se conservan las ocho vistas originales y el nuevo Centro de control",
+    "Calendario: mes, semana, día y lista",
+    "Vehículos ligeros: almanaque, Gantt y lista",
+    "Mecánicos restaurados: transporte simple y fragmentado, filtrado y rechazo de registro nulo con fixture de prueba",
+    "Ficha por equipo y cierre accesible de modal",
+    "Exportaciones reales: CSV, XLSX, PowerPoint y PDF mediante impresión",
+    "Diésel: agrupaciones y descarga PDF",
+    "Pérdida y recuperación de internet conservando el corte; no se simula soporte PWA operativo",
+    "Menú plegable de escritorio",
+    "Responsive 1920/1440/768/390 y navegación móvil"
+  ],
+  "errors": [],
+  "console": [],
+  "downloads": [
+    "CSV",
+    "XLSX",
+    "PPTX",
+    "PDF de impresión"
+  ],
+  "counts": {
+    "schema": "sierra-madre-consultas/v1",
+    "kpi": 138,
+    "logs": 2894,
+    "calendar": 149,
+    "equipment": 124,
+    "views": [
+      "mecanicos",
+      "control",
+      "inicio",
+      "bitacora",
+      "supervision",
+      "vehiculos",
+      "calendario",
+      "equipos",
+      "reportes",
+      "diesel"
+    ]
+  },
+  "ok": true
+}

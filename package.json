@@ -1,0 +1,14 @@
+{
+  "name": "sierra-madre-portal-empresarial",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Rama de revisión visual, sin integración de escritura",
+  "scripts": {
+    "preview": "python pruebas/preview.py --port 15923",
+    "test:contracts": "python pruebas/test_integridad.py",
+    "test:browser": "node pruebas/regresion_navegador.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.65.0"
+  }
+}

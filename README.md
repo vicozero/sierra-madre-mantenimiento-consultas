@@ -1,25 +1,25 @@
-# Consulta de mantenimiento Sierra Madre
+# SIERRA MADRE · Portal empresarial — revisión visual
 
-Portal público de solo lectura para consultar KPI, bitácora, calendario preventivo y equipos desde Mantenimiento.
+Rama: revision/portal-empresarial-20261106. Base funcional: main, commit 39b549a. Esta rama no despliega GitHub Pages; la página publicada continúa sin cambios.
 
-## Actualización automática
+## Vista local
 
-1. Instala la versión de Mantenimiento que incluye «URL del portal informativo» y «Clave de publicación del portal» en la PC que contiene la base de datos.
-2. En Herramientas → Configuración de red y actualizaciones, deja la URL del portal informativo y captura la clave privada de publicación entregada al administrador. Pulsa Probar y luego Guardar.
-3. El programa publica un paquete depurado al iniciar y después de cambios registrados, cuando hay internet. La página consulta el último paquete automáticamente.
-4. El paquete incluye datos mensuales KPI y capturas históricas de bitácora, más calendario preventivo. Filtra por fechas y familias, y usa PDF o CSV compatible con Excel para reportar.
+Desde esta carpeta:
 
-La API conserva una copia vigente y archivos diarios de respaldo en almacenamiento persistente. La clave solo autoriza publicar; las consultas son públicas, como este sitio. El servidor aplica una lista blanca de campos y omite credenciales, rutas locales, responsables, costos, órdenes y evidencias. Las órdenes, fotografías y PDF permanecen en el expediente interno hasta contar con un portal privado y usuarios autorizados. No cargues ni publiques la base SQLite completa.
+```powershell
+python pruebas/preview.py --port 15923
+```
 
-## Consulta de Diesel
+Abra http://127.0.0.1:15923/. El servidor de desarrollo obtiene únicamente el mismo paquete público, con destinos fijos. No usa credenciales ni SQLite y se enlaza sólo a localhost. Al servir app.js adapta la dirección de consulta en memoria para resolver CORS local; los archivos de producción conservan la API canónica.
 
-La pantalla Diesel puede leer un libro `.xlsx` directamente en el navegador y generar consultas por turno, día, semana o mes, además de PDF y CSV. El lector usa una hoja a la vez para evitar sumar copias históricas del mismo libro y excluye las columnas de operador y despachador. El archivo se procesa localmente y no se envía a GitHub.
+## Auditoría y pruebas
 
-La API de publicación actual aún no incluye el arreglo `diesel`; por eso la visualización automática de registros Diesel del programa todavía no está disponible. La página aceptará esa sección cuando el exportador y el servidor la publiquen con campos depurados. No publiques el libro completo ni datos de operadores.
+- docs/01_DIAGNOSTICO_Y_PLAN.md: problemas de OpenCode, inventario inicial y plan.
+- docs/02_MAPA_FUNCIONAL.md: funciones conservadas, resultados y límites.
+- docs/03_ARQUITECTURA_Y_SIGUIENTE_FASE.md: decisiones y puerta de aprobación antes de SQLite.
+- pruebas/test_integridad.py: funciones/IDs/contratos/dependencias y sintaxis.
+- pruebas/regresion_navegador.cjs: navegación, consultas, filtros, calendarios, exportaciones, desconexión y responsive. Requiere npm ci y Edge en Windows, o npx playwright install chromium en otro entorno. Puede indicar BROWSER_EXECUTABLE para otro navegador Chromium.
 
-## Desarrollo
+Ejecute python pruebas/test_integridad.py desde esta carpeta. Los datos reales y exportaciones privadas no se incluyen en Git ni en el paquete de fuentes. Las bibliotecas gráficas/fuentes se sirven localmente con licencias, sin CDN obligatorio.
 
-El sitio es estático y se publica mediante GitHub Pages. Los datos se consultan desde la API pública de consulta; los navegadores reciben el paquete depurado `sierra-madre-consultas/v1` con arreglos `equipment`, `kpi`, `bitacora` y `calendar`; `diesel` es opcional y aún no lo entrega el servidor actual.
-
-## Órdenes y evidencias
-El programa guarda los adjuntos junto a SQLite en evidencias_ot/<id_orden>. La consulta se realiza desde Órdenes de trabajo e Historial del equipo dentro de Mantenimiento. El portal público no recibe ni muestra estos documentos.
+La vista operativa sigue siendo de consulta: no se inventa una sesión de administrador, ni cola offline, ni escrituras. Los módulos futuros permanecen identificados y deshabilitados. La API central y SQLite requieren revisión y aprobación posterior del diseño.
