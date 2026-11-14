@@ -1505,9 +1505,13 @@
   function aceiteImportPreviewHtml() {
     const p = ui.aceiteImportPreview; if (!p) return '';
     const meta = p.meta || {};
+    const rows = (meta.rows != null ? meta.rows : (p.dispatches||[]).length);
+    const lecturas = (meta.meterRows != null ? meta.meterRows : (meta.bobaRows != null ? meta.bobaRows : (p.meters||[]).length));
+    const litrosSal = (meta.litrosSalidas != null ? meta.litrosSalidas : (meta.litrosCargas != null ? meta.litrosCargas : null));
+    const litrosCta = (meta.litrosCuenta != null ? meta.litrosCuenta : (meta.litrosBoba != null ? meta.litrosBoba : null));
     return '<div class="import-preview">' +
-      '<div class="notice ok"><div><strong>' + esc(ui.aceiteImportName||'Archivo') + '</strong> · ' + (meta.rows||0) + ' salidas · ' + (meta.bobaRows||0) + ' lecturas cuenta litros · ' + esc(meta.desde?fmtDate(meta.desde):'—') + ' a ' + esc(meta.hasta?fmtDate(meta.hasta):'—') + '</div></div>' +
-      '<div class="kpis" style="margin:12px 0">' + kpi('Litros en salidas', litros(meta.litrosCargas), 'del archivo','') + kpi('Litros en cuenta litros', litros(meta.litrosBoba), 'lecturas del archivo','') + kpi('Hojas', (meta.sheets||[]).length, (meta.sheets||[]).join(', '),'') + '</div>' +
+      '<div class="notice ok"><div><strong>' + esc(ui.aceiteImportName||'Archivo') + '</strong> · ' + rows + ' salidas · ' + lecturas + ' lecturas cuenta litros · ' + esc(meta.desde?fmtDate(meta.desde):'—') + ' a ' + esc(meta.hasta?fmtDate(meta.hasta):'—') + '</div></div>' +
+      '<div class="kpis" style="margin:12px 0">' + kpi('Litros en salidas', litros(litrosSal), 'del archivo','') + kpi('Litros en cuenta litros', litros(litrosCta), 'lecturas del archivo','') + kpi('Hojas', (meta.sheets||[]).length, (meta.sheets||[]).join(', '),'') + '</div>' +
       ((meta.warnings||[]).length ? notice('<strong>Avisos de lectura:</strong><ul style="margin:6px 0 0 18px">' + meta.warnings.slice(0,5).map((w)=>'<li>'+esc(w)+'</li>').join('') + '</ul>','warn') : '') +
       '<div class="row" style="margin-top:12px"><label class="check"><input type="radio" name="aceiteImportMode" value="merge" checked> Combinar</label><label class="check"><input type="radio" name="aceiteImportMode" value="replace"> Reemplazar periodos</label><span class="muted" style="font-size:12px">Combinar actualiza renglones iguales y agrega nuevos. Reemplazar deja el periodo exactamente como el archivo.</span></div>' +
       '<div class="row" style="margin-top:12px"><button class="btn accent" type="button" data-act="confirm-import-aceites">Importar datos</button><button class="btn ghost" type="button" data-act="cancel-import-aceites">Cancelar</button></div></div>';
@@ -1524,7 +1528,8 @@
       ui.aceiteImportName = file.name;
       toast('Archivo leído: ' + parsed.dispatches.length + ' salidas, ' + parsed.meters.length + ' lecturas.', 'ok');
       render();
-    } catch (err) { console.error(err); toast('No se pudo leer el archivo: ' + (err.message || err), 'err'); }
+      const inp = document.getElementById('fileImportAceites'); if (inp) inp.value = '';
+    } catch (err) { console.error(err); toast('No se pudo leer el archivo: ' + (err.message || err), 'err'); const inp = document.getElementById('fileImportAceites'); if (inp) inp.value = ''; }
   }
 
 
