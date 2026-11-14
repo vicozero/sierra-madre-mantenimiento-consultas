@@ -1,0 +1,431 @@
+{
+  "empresa": "SIERRA MADRE GOLD & SILVER",
+  "razonSocial": "LA GUITARRA COMPAÑIA MINERA SA DE CV.",
+  "tituloBitacora": "BITACORA CONSUMO DIESEL MINA. PLANTA , LABORATORIO , VEHICULOS LIGEROS, GENERACION ENERGIA.",
+  "moneda": "MXN",
+  "precioDefault": 24.5,
+  "contadorMax": 1000000,
+  "turnos": [
+    "Turno 1",
+    "Turno 2"
+  ],
+  "categorias": [
+    {
+      "id": "EDM",
+      "nombre": "Equipo diésel de mina"
+    },
+    {
+      "id": "VLG",
+      "nombre": "Vehículos ligeros"
+    },
+    {
+      "id": "GEN",
+      "nombre": "Generación de energía"
+    },
+    {
+      "id": "EXT",
+      "nombre": "Externo"
+    },
+    {
+      "id": "LAB",
+      "nombre": "Laboratorio"
+    },
+    {
+      "id": "EPJ",
+      "nombre": "Equipo presa de jales"
+    },
+    {
+      "id": "EDP",
+      "nombre": "Equipo diésel planta de beneficio"
+    },
+    {
+      "id": "MTP",
+      "nombre": "Mantenimiento planta"
+    },
+    {
+      "id": "PRO",
+      "nombre": "Proyectos"
+    },
+    {
+      "id": "PLA",
+      "nombre": "Planta"
+    }
+  ],
+  "departamentos": [
+    "Compras",
+    "Exploracion",
+    "Geologia",
+    "Laboratorio",
+    "Mantenimiento",
+    "Mantenimiento Electrico",
+    "Mecanica de rocas",
+    "Medio Ambiente",
+    "Mina",
+    "Planta Beneficio",
+    "Proyectos",
+    "Recursos Humanos",
+    "Seguridad",
+    "Servicios Tecnicos"
+  ],
+  "equipos": [
+    {
+      "id": "CM-EJC417",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "CM-FL-M2106",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "CM-TORO12",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "CM-TORO12-2",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "GENERADOR DIESEL IGSA POWER RESPALDO",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "JU-AXERA5",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "JU-DD210",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "LABORATORIO",
+      "categoria": "EDM",
+      "departamento": "Laboratorio"
+    },
+    {
+      "id": "ST-24",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "ST-34",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "ST-37",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "ST-39",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "ST-40",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "ST-41",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "ST-42",
+      "categoria": "EDM",
+      "departamento": "Mina"
+    },
+    {
+      "id": "CF-WA250-6 #1",
+      "categoria": "EDP",
+      "departamento": "Planta Beneficio"
+    },
+    {
+      "id": "CM-FL-M2106 #8",
+      "categoria": "EDP",
+      "departamento": "Proyectos"
+    },
+    {
+      "id": "CM-KW-T660",
+      "categoria": "EDP",
+      "departamento": "Proyectos"
+    },
+    {
+      "id": "EX-JD290G",
+      "categoria": "EDP",
+      "departamento": "Planta Beneficio"
+    },
+    {
+      "id": "MC-232D3",
+      "categoria": "EDP",
+      "departamento": "Planta Beneficio"
+    },
+    {
+      "id": "MN-CASE",
+      "categoria": "EDP",
+      "departamento": "Proyectos"
+    },
+    {
+      "id": "RO-CS54B",
+      "categoria": "EDP",
+      "departamento": "Proyectos"
+    },
+    {
+      "id": "SECADOR CONCENTRADO",
+      "categoria": "EDP",
+      "departamento": "Planta Beneficio"
+    },
+    {
+      "id": "TR-D65EX",
+      "categoria": "EDP",
+      "departamento": "Planta Beneficio"
+    },
+    {
+      "id": "MANTENIMIENTO PLANTA",
+      "categoria": "MTP",
+      "departamento": "Planta Beneficio"
+    },
+    {
+      "id": "CF-WA250-6 #2",
+      "categoria": "PRO",
+      "departamento": "Proyectos"
+    },
+    {
+      "id": "CM-FL-M2106 #5",
+      "categoria": "PRO",
+      "departamento": "Proyectos"
+    },
+    {
+      "id": "CM-FL-M2106 #6",
+      "categoria": "PRO",
+      "departamento": "Proyectos"
+    },
+    {
+      "id": "CM-FL-M2106 #7",
+      "categoria": "PRO",
+      "departamento": "Mina"
+    },
+    {
+      "id": "CM-INT8600",
+      "categoria": "PRO",
+      "departamento": "Proyectos"
+    },
+    {
+      "id": "PI-FL-M2106",
+      "categoria": "PRO",
+      "departamento": "Proyectos"
+    },
+    {
+      "id": "NISSAN FRONTIER EXPLORACION",
+      "categoria": "VLG",
+      "departamento": "Exploracion"
+    },
+    {
+      "id": "VL-006",
+      "categoria": "VLG",
+      "departamento": "Mantenimiento"
+    },
+    {
+      "id": "VL-010",
+      "categoria": "VLG",
+      "departamento": "Mantenimiento Electrico"
+    },
+    {
+      "id": "VL-012",
+      "categoria": "VLG",
+      "departamento": "Compras"
+    },
+    {
+      "id": "VL-014",
+      "categoria": "VLG",
+      "departamento": "Seguridad"
+    },
+    {
+      "id": "VL-015",
+      "categoria": "VLG",
+      "departamento": "Mecanica de rocas"
+    },
+    {
+      "id": "VL-016",
+      "categoria": "VLG",
+      "departamento": "Mina"
+    },
+    {
+      "id": "VL-017",
+      "categoria": "VLG",
+      "departamento": "Geologia"
+    },
+    {
+      "id": "VL-019",
+      "categoria": "VLG",
+      "departamento": "Mina"
+    },
+    {
+      "id": "VL-020",
+      "categoria": "VLG",
+      "departamento": "Mina"
+    },
+    {
+      "id": "VL-021",
+      "categoria": "VLG",
+      "departamento": "Servicios Tecnicos"
+    },
+    {
+      "id": "VL-022",
+      "categoria": "VLG",
+      "departamento": "Compras"
+    },
+    {
+      "id": "VL-023",
+      "categoria": "VLG",
+      "departamento": "Compras"
+    },
+    {
+      "id": "VL-025",
+      "categoria": "VLG",
+      "departamento": "Mantenimiento"
+    },
+    {
+      "id": "VL-026",
+      "categoria": "VLG",
+      "departamento": "Mina"
+    },
+    {
+      "id": "VL-027",
+      "categoria": "VLG",
+      "departamento": "Servicios Tecnicos"
+    },
+    {
+      "id": "VL-028",
+      "categoria": "VLG",
+      "departamento": "Exploracion"
+    },
+    {
+      "id": "VL-029",
+      "categoria": "VLG",
+      "departamento": "Medio Ambiente"
+    },
+    {
+      "id": "VL-031",
+      "categoria": "VLG",
+      "departamento": "Mina"
+    },
+    {
+      "id": "VL-032",
+      "categoria": "VLG",
+      "departamento": "Mantenimiento"
+    },
+    {
+      "id": "VL-033",
+      "categoria": "VLG",
+      "departamento": "Mantenimiento"
+    },
+    {
+      "id": "VL-035",
+      "categoria": "VLG",
+      "departamento": "Recursos Humanos"
+    }
+  ],
+  "operadores": [
+    "ABDIAS OSORIO",
+    "ADALBERTO MARTINEZ",
+    "ADOLFO MORA",
+    "ADRIAN JARAMILLO",
+    "AGUSTIN RECHA",
+    "AGUSTIN ROCHA",
+    "ALBERTO CARBAJAL",
+    "ALEJANDRO MARTINEZ",
+    "ALEJANDRO RODRIGUEZ",
+    "ALEXIS JOSE SIMON",
+    "ALFREDO SEGURA",
+    "AMADEO REYES",
+    "ANGEL ARREGUIN",
+    "ANGEL CRUZ",
+    "ARTURO JAIMES",
+    "AURELIO BARCENAS",
+    "Alejandro Colin",
+    "Apolonio Bahena",
+    "BERTIN ROSAS",
+    "CARLOS ALMANZA",
+    "CLEMENTE ROSAS",
+    "Carlos Osorio",
+    "DANIEL NAVARRO",
+    "DAVID A. RODRIGUEZ",
+    "David Ibarra",
+    "David de Hoyos",
+    "Diego Olmos Gonzalez",
+    "Dionicio Rosas Cruz",
+    "EFRAIN FIGUEROA",
+    "ELIA ALFARO",
+    "ENRIQUE CARDOSO",
+    "ENRIQUE MARTINEZ",
+    "ENRRIQUE CARDOZO",
+    "ERIKA SILVA",
+    "ESTEBAN MENDEZ JAIMES",
+    "Edwin Alcantara",
+    "GERMAN PEREZ",
+    "GERSAIN HERNANDEZ",
+    "GRAciano Enriquez",
+    "German Perez",
+    "Graciano Enriquez",
+    "Gustavo Pompa",
+    "HECTOR PLATA",
+    "HILDEBERTO REBOLLAR",
+    "Heriberto Jaramillo",
+    "IVAN RAMIREZ",
+    "JAIR MENDEZ COLIN",
+    "JORGE CELIS",
+    "JORGE MARTINEZ H.",
+    "JOSE DE JESUS EZPINOZA MORALES",
+    "JOSE GUADALUPE CONTRERAS",
+    "JOSE MANUEL HERNANDEZ",
+    "JUAN CARLOS FAUSTRO",
+    "JUAN MANUEL VEGA",
+    "JUDITH PLAZA",
+    "JUVENAL RODRIGUEZ",
+    "Jesus Espinoza",
+    "Jose Alfredo Montero",
+    "Jose Luis Maya",
+    "Jovani celestino",
+    "Juan Jose Naranjo",
+    "Juan Manuel Gonzalez",
+    "LUIS ENRIQUE ROCHA",
+    "LUIS ENRIQUE VILLA",
+    "MANUEL LOPEZ",
+    "MARCOS MORALES",
+    "MARIANO OSORIO",
+    "MICHELLE GARCIA",
+    "MIGUEL ANGEL BARON",
+    "MIGUEL BARRON",
+    "MIGUEL MARTINEZ",
+    "OCTAVIO OSORIO",
+    "OSCAR FRANCO",
+    "PEDRO FAJARDO",
+    "ROBERTO FIGUEROA",
+    "Raunel Morales",
+    "SAMUEL RAMIREZ ALVAREZ",
+    "SIN OPERADOR",
+    "URIEL MARTINEZ",
+    "VICTOR ALFREDO CARMONA",
+    "VICTOR CRUZ OSORIO",
+    "VICTOR H CRUZ OSORIO",
+    "VICTOR OSORIO",
+    "Victor Hugo Osorio Fajardo.",
+    "hector",
+    "samuel vega"
+  ],
+  "responsables": [
+    "David cisneros"
+  ],
+  "ubicaciones": [
+    "GUITARRA"
+  ]
+}
