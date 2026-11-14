@@ -1,55 +1,55 @@
-<!DOCTYPE ? html>
-<html ? lang="es">
+<!DOCTYPE html>
+<html lang="es">
 <head>
-<meta ? charset="utf-8">
-<meta ? name="viewport" ? content="width=device-width, ? initial-scale=1">
-<meta ? name="color-scheme" ? content="light ? dark">
-<title>Control ? de ? diésel ? · ? Boba</title>
-<meta ? name="description" ? content="Registro ? diario ? del ? cuenta-litros ? de ? la ? boba, ? cargas ? por ? equipo ? y ? reportes. ? Datos ? alojados ? en ? GitHub.">
-<link ? rel="stylesheet" ? href="assets/styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Control de diésel · Boba</title>
+<meta name="description" content="Registro diario del cuenta-litros de la boba, cargas por equipo y reportes. Datos alojados en GitHub.">
+<link rel="stylesheet" href="assets/styles.css">
 <script>
- ?  ? (function(){try{var ? t=localStorage.getItem('diesel.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+  (function(){try{var t=localStorage.getItem('diesel.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
 </script>
-<link ? rel="icon" ? href="data:image/svg+xml,%3Csvg ? xmlns='http://www.w3.org/2000/svg' ? viewBox='0 ? 0 ? 100 ? 100'%3E%3Crect ? width='100' ? height='100' ? rx='22' ? fill='%230f2a43'/%3E%3Cpath ? d='M50 ? 18c12 ? 17 ? 21 ? 26 ? 21 ? 38a21 ? 21 ? 0 ? 0 ? 1-42 ? 0c0-12 ? 9-21 ? 21-38z' ? fill='%23f59e0b'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f2a43'/%3E%3Cpath d='M50 18c12 17 21 26 21 38a21 21 0 0 1-42 0c0-12 9-21 21-38z' fill='%23f59e0b'/%3E%3C/svg%3E">
 </head>
 <body>
 
-<header ? class="topbar">
- ?  ? <div ? class="brand">
- ?  ?  ?  ? <img ? class="brand-logo" ? src="assets/logo-sierra-madre.svg" ? alt="Sierra ? Madre" ? height="34">
- ?  ?  ?  ? <span ? class="brand-txt">
- ?  ?  ?  ?  ?  ? <strong>Control ? de ? diésel</strong>
- ?  ?  ?  ?  ?  ? <small ? id="brandSub">Boba ? · ? cargas ? · ? reportes ? · ? dashboard</small>
- ?  ?  ?  ? </span>
- ?  ? </div>
- ?  ? <div ? class="top-actions">
- ?  ?  ?  ? <button ? class="btn ? ghost ? icon" ? id="btnTheme" ? type="button" ? title="Cambiar ? tema ? día/noche" ? aria-label="Cambiar ? tema ? día/noche">
- ?  ?  ?  ?  ?  ? <svg ? id="iconTheme" ? width="16" ? height="16" ? viewBox="0 ? 0 ? 24 ? 24" ? fill="none" ? stroke="currentColor" ? stroke-width="2" ? stroke-linecap="round" ? aria-hidden="true"><path ? d="M21 ? 12.8A9 ? 9 ? 0 ? 1 ? 1 ? 11.2 ? 3a7 ? 7 ? 0 ? 0 ? 0 ? 9.8 ? 9.8z"/></svg>
- ?  ?  ?  ? </button>
- ?  ?  ?  ? <button ? class="chip" ? id="statusChip" ? type="button" ? title="Estado ? de ? la ? sincronización">
- ?  ?  ?  ?  ?  ? <span ? class="dot" ? aria-hidden="true"></span><span ? id="statusText">Solo ? local</span>
- ?  ?  ?  ? </button>
- ?  ?  ?  ? <button ? class="btn ? ghost ? sm" ? id="btnSync" ? type="button" ? title="Sincronizar ? con ? GitHub">
- ?  ?  ?  ?  ?  ? <svg ? width="15" ? height="15" ? viewBox="0 ? 0 ? 24 ? 24" ? fill="none" ? stroke="currentColor" ? stroke-width="2" ? stroke-linecap="round" ? aria-hidden="true"><path ? d="M21 ? 12a9 ? 9 ? 0 ? 1 ? 1-2.6-6.4"/><path ? d="M21 ? 3v6h-6"/></svg>
- ?  ?  ?  ?  ?  ? <span>Sincronizar</span>
- ?  ?  ?  ? </button>
- ?  ? </div>
+<header class="topbar">
+  <div class="brand">
+    <img class="brand-logo" src="assets/logo-sierra-madre.svg" alt="Sierra Madre" height="34">
+    <span class="brand-txt">
+      <strong>Control de diésel</strong>
+      <small id="brandSub">Boba · cargas · reportes · dashboard</small>
+    </span>
+  </div>
+  <div class="top-actions">
+    <button class="btn ghost icon" id="btnTheme" type="button" title="Cambiar tema día/noche" aria-label="Cambiar tema día/noche">
+      <svg id="iconTheme" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <button class="chip" id="statusChip" type="button" title="Estado de la sincronización">
+      <span class="dot" aria-hidden="true"></span><span id="statusText">Solo local</span>
+    </button>
+    <button class="btn ghost sm" id="btnSync" type="button" title="Sincronizar con GitHub">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+      <span>Sincronizar</span>
+    </button>
+  </div>
 </header>
 
-<nav ? class="tabs" ? id="tabs" ? aria-label="Secciones">
- ?  ? <a ? href="#/dashboard" ? data-tab="dashboard">Dashboard</a>
- ?  ? <a ? href="#/dia" ? data-tab="dia">Día</a>
- ?  ? <a ? href="#/boba" ? data-tab="boba">Cuenta ? litros</a>
- ?  ? <a ? href="#/cargas" ? data-tab="cargas">Cargas</a>
- ?  ? <a ? href="#/bitacora" ? data-tab="bitacora">Bitácora</a>
- ?  ? <a ? href="#/reportes" ? data-tab="reportes">Reportes</a>
- ?  ? <a ? href="#/aceites" ? data-tab="aceites">Aceites</a>
- ?  ? <a ? href="#/bitacora-aceites" ? data-tab="bitacora-aceites">Bitácora ? aceites</a>
- ?  ? <a ? href="#/usuarios" ? data-tab="usuarios">Usuarios</a>
- ?  ? <a ? href="#/ajustes" ? data-tab="ajustes">Ajustes</a>
+<nav class="tabs" id="tabs" aria-label="Secciones">
+  <a href="#/dashboard" data-tab="dashboard">Dashboard</a>
+  <a href="#/dia" data-tab="dia">Día</a>
+  <a href="#/boba" data-tab="boba">Cuenta litros</a>
+  <a href="#/cargas" data-tab="cargas">Cargas</a>
+  <a href="#/bitacora" data-tab="bitacora">Bitácora</a>
+  <a href="#/reportes" data-tab="reportes">Reportes</a>
+  <a href="#/aceites" data-tab="aceites">Aceites</a>
+  <a href="#/bitacora-aceites" data-tab="bitacora-aceites">Bitácora aceites</a>
+  <a href="#/usuarios" data-tab="usuarios">Usuarios</a>
+  <a href="#/ajustes" data-tab="ajustes">Ajustes</a>
 </nav>
 
-<main ? class="wrap" ? id="view" ? aria-live="polite"></main>
+<main class="wrap" id="view" aria-live="polite"></main>
 
 <footer class="foot">
   <span id="footLeft">Modo local · los datos viven en este navegador</span>
@@ -59,13 +59,13 @@
   </span>
 </footer>
 
-<div ? class="toast" ? id="toast" ? role="status" ? aria-live="polite"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script ? src="assets/vendor/fflate.min.js"></script>
-<script ? src="assets/xlsx.js"></script>
-<script ? src="assets/aceites-xlsx.js"></script>
-<script ? src="assets/store.js"></script>
-<script ? src="assets/charts.js"></script>
-<script ? src="assets/app.js"></script>
+<script src="assets/vendor/fflate.min.js"></script>
+<script src="assets/xlsx.js"></script>
+<script src="assets/aceites-xlsx.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/app.js"></script>
 </body>
 </html>
