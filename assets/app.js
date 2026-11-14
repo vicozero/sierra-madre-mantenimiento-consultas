@@ -718,7 +718,8 @@
       '<div class="stack">' +
         '<section class="card no-print"><div class="card-head"><div><h2>Bitácora de aceites</h2><p>Registros de contadores de aceites cotejados con salidas por día y producto (independiente del diésel).</p></div></div>' +
           '<div class="filters">' + field('Desde','<input type="date" name="bitAceiteDesde" value="' + esc(desde) + '">') + field('Hasta','<input type="date" name="bitAceiteHasta" value="' + esc(hasta) + '">') +
-            '<div class="field"><label>Atajos</label><div class="row"><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes">Este mes</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes-pasado">Mes pasado</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="30">30 d—as</button></div></div></div>' +
+            '<div class="field"><label>Atajos</label><div class="row"><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes">Este mes</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes-pasado">Mes pasado</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="30">30 días</button></div></div></div>' +
+          '<div class="divider"></div><div class="row"><button class="btn accent" type="button" data-act="pdf-aceites" title="Generar reporte PDF avanzado de aceites">Reporte PDF aceites</button><button class="btn ghost" type="button" data-act="print-report">Imprimir / PDF</button></div>' +
         '</section>' +
         aceitesCountersBitacoraHtml(desde, hasta) +
       '</div>';
@@ -740,7 +741,7 @@
         '<section class="card no-print"><div class="card-head"><div><h2>Bitácora del concentrado</h2><p>Todo el concentrado en formato de reporte. Importa y exporta el mismo Excel (.xlsx).</p></div></div>' +
           '<div class="filters">' + field('Desde','<input type="date" name="bitDesde" value="' + esc(desde) + '">') + field('Hasta','<input type="date" name="bitHasta" value="' + esc(hasta) + '">') +
             '<div class="field"><label>Atajos</label><div class="row"><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes">Este mes</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes-pasado">Mes pasado</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="30">30 días</button></div></div></div>' +
-          '<div class="divider"></div><div class="row"><button class="btn accent" type="button" data-act="export-xlsx">Exportar concentrado (.xlsx)</button><button class="btn ghost" type="button" data-act="export-csv">Exportar CSV</button><button class="btn ghost" type="button" data-act="print-report">Imprimir / PDF</button></div></section>' +
+          '<div class="divider"></div><div class="row"><button class="btn accent" type="button" data-act="export-xlsx">Exportar concentrado (.xlsx)</button><button class="btn ghost" type="button" data-act="export-csv">Exportar CSV</button><button class="btn ghost" type="button" data-act="print-report">Imprimir / PDF</button><button class="btn accent" type="button" data-act="pdf-diesel" title="Generar reporte PDF avanzado de diésel">Reporte PDF diésel</button></div></section>' +
         '<section class="card no-print"><div class="card-head"><div><h2>Importar concentrado de diésel</h2><p>Sube el archivo Excel del concentrado (hoja REPORTE DIESEL). También lee CUENTA LITROS si existe.</p></div></div>' +
           '<div class="dropzone" id="dropZone"><input type="file" id="fileImport" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><p><strong>Elige un archivo</strong> o arrástralo aquí</p><button class="btn ghost" type="button" data-act="pick-file">Elegir archivo .xlsx</button></div>' +
           (ui.importPreview ? importPreviewHtml() : '') + '</section>' +
@@ -887,7 +888,7 @@
         '<section class="card no-print"><div class="card-head"><div><h2>Reportes y Excel</h2><p>Concentrado, gráficas, KPIs avanzados e importación/exportación</p></div></div>' +
           '<div class="filters">' + field('Desde','<input type="date" name="repDesde" value="'+esc(desde)+'">') + field('Hasta','<input type="date" name="repHasta" value="'+esc(hasta)+'">') +
             '<div class="field"><label>Atajos</label><div class="row"><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes">Este mes</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes-pasado">Mes pasado</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="30">30 días</button></div></div></div>' +
-          '<div class="divider"></div><div class="row"><button class="btn accent" type="button" data-act="export-xlsx">Descargar Excel (.xlsx)</button><button class="btn ghost" type="button" data-act="export-csv">CSV de cargas</button><button class="btn ghost" type="button" data-act="print-report">Imprimir / PDF</button></div></section>' +
+          '<div class="divider"></div><div class="row"><button class="btn accent" type="button" data-act="export-xlsx">Descargar Excel (.xlsx)</button><button class="btn ghost" type="button" data-act="export-csv">CSV de cargas</button><button class="btn ghost" type="button" data-act="print-report">Imprimir / PDF</button><button class="btn accent" type="button" data-act="pdf-diesel" title="Generar reporte PDF avanzado de diésel">Reporte PDF diésel</button></div></section>' +
         '<section class="card no-print"><div class="card-head"><div><h2>Importar concentrado</h2><p>Sube el mismo archivo .xlsx (hoja REPORTE DIESEL). También lee CUENTA LITROS si existe.</p></div></div><div class="dropzone" id="dropZone"><input type="file" id="fileImport" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><p><strong>Elige un archivo</strong> o arrástralo aquí</p><button class="btn ghost" type="button" data-act="pick-file">Elegir archivo .xlsx</button></div>' + (ui.importPreview?importPreviewHtml():'') + '</section>' +
         '<section class="card"><div class="card-head"><div><h2>Resumen del periodo</h2><p>'+esc(fmtDate(desde))+' a '+esc(fmtDate(hasta))+'</p></div></div><div class="kpis">' +
           kpi('Litros boba', litros(lecturas?totalBoba:null), lecturas+' días con lectura (día o turnos)','') +
@@ -1033,6 +1034,7 @@
     if (act === 'export-xlsx') { exportXlsx(); return; }
     if (act === 'export-csv') { exportCsv(); return; }
     if (act === 'print-report') { window.print(); return; }
+    if (act === 'pdf-diesel') { pdfDieselReport(); return; }
     if (act === 'pick-file') { const f = $('#fileImport'); if (f) f.click(); return; }
     if (act === 'cancel-import') { ui.importPreview = null; ui.importName = ''; render(); return; }
     if (act === 'confirm-import') {
@@ -1072,6 +1074,7 @@
       Store.remove(rec.id); toast('Cuenta litros eliminada.','ok'); render(); return;
     }
     if (act === 'export-aceites-xlsx') { exportAceitesXlsx(); return; }
+    if (act === 'pdf-aceites') { pdfAceitesReport(); return; }
     if (act === 'pick-file-aceites') { const f = $('#fileImportAceites'); if (f) f.click(); return; }
     if (act === 'cancel-import-aceites') { ui.aceiteImportPreview = null; ui.aceiteImportName = ''; render(); return; }
     if (act === 'confirm-import-aceites') {
@@ -1332,7 +1335,7 @@
             field('Hasta','<input type="date" id="aceitesHasta" value="' + esc(hasta) + '">') +
             '<div class="field"><label>Atajos</label><div class="row"><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes">Este mes</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes-pasado">Mes pasado</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="30">30 días</button></div></div>' +
           '</div>' +
-          '<div class="row" style="margin-top:12px"><button class="btn accent" type="button" data-act="export-aceites-xlsx">Exportar Excel de aceites</button><button class="btn ghost" type="button" data-act="pick-file-aceites">Importar Excel</button><button class="btn ghost sm" type="button" data-act="aceite-vista" data-vista="captura">Ir a captura diaria</button></div>' +
+          '<div class="row" style="margin-top:12px"><button class="btn accent" type="button" data-act="export-aceites-xlsx">Exportar Excel de aceites</button><button class="btn ghost" type="button" data-act="pick-file-aceites">Importar Excel</button><button class="btn ghost sm" type="button" data-act="aceite-vista" data-vista="captura">Ir a captura diaria</button><button class="btn accent" type="button" data-act="pdf-aceites" title="Generar reporte PDF avanzado de aceites">Reporte PDF aceites</button></div>' +
           '<div class="dropzone" id="dropZoneAceites" style="margin-top:12px"><input type="file" id="fileImportAceites" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><p><strong>Importar concentrado de aceites</strong> (.xlsx) · arrastra o elige archivo</p><button class="btn ghost sm" type="button" data-act="pick-file-aceites">Elegir archivo</button></div>' +
           (ui.aceiteImportPreview ? aceiteImportPreviewHtml() : '') +
         '</section>' +
@@ -1392,7 +1395,7 @@
             field('Producto','<select id="aceitesProducto"><option value="">Todos</option>' + ACEITE_PRODUCTOS.map(p=>'<option value="' + esc(p) + '"' + (ui.aceites.producto===p?' selected':'') + '>' + esc(p) + '</option>').join('') + '</select>') +
             field('Buscar','<input type="search" id="aceitesQ" value="' + esc(ui.aceites.q) + '" placeholder="Equipo, folio, mecánico⬦">') +
           '</div>' +
-          '<div class="row" style="margin-top:12px"><button class="btn accent" type="button" data-act="export-aceites-xlsx">Exportar Excel de aceites</button><button class="btn ghost" type="button" data-act="pick-file-aceites">Importar Excel</button><button class="btn ghost sm" type="button" data-act="aceite-vista" data-vista="dashboard">Ver dashboard y gráficos</button></div>' +
+          '<div class="row" style="margin-top:12px"><button class="btn accent" type="button" data-act="export-aceites-xlsx">Exportar Excel de aceites</button><button class="btn ghost" type="button" data-act="pick-file-aceites">Importar Excel</button><button class="btn ghost sm" type="button" data-act="aceite-vista" data-vista="dashboard">Ver dashboard y gráficos</button><button class="btn accent" type="button" data-act="pdf-aceites" title="Generar reporte PDF avanzado de aceites">Reporte PDF aceites</button></div>' +
           '<div class="dropzone" id="dropZoneAceites" style="margin-top:12px"><input type="file" id="fileImportAceites" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><p><strong>Importar concentrado de aceites</strong> (.xlsx) · arrastra o elige archivo</p><button class="btn ghost sm" type="button" data-act="pick-file-aceites">Elegir archivo</button></div>' +
           (ui.aceiteImportPreview ? aceiteImportPreviewHtml() : '') +
           '<div class="kpis" style="margin-top:12px">' + kpi('Salidas (renglones)', nf(rangeDispatches.length), 'en el periodo','') + kpi('Litros salidas', nf(totalRango,1)+' L', 'periodo filtrado','') + kpi('Lecturas cuenta litros', nf(metersRange.filter(m=>m.litros!=null).length), 'en el periodo','') + '</div>' +
@@ -1586,6 +1589,240 @@
     });
     downloadCSV('cargas_diesel_' + d.desde + '_a_' + d.hasta + '.csv', rows);
     toast('CSV generado.', 'ok');
+  }
+
+  /* ------------------------------ Reportes PDF (avanzados) ------------------------------ */
+
+  function reportLogoSvg(small) {
+    var h = small ? 38 : 46;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" height="' + h + '" aria-label="Sierra Madre">' +
+      '<defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#163a5c"/><stop offset="1" stop-color="#0b1e30"/></linearGradient></defs>' +
+      '<g transform="translate(4,6)"><rect x="0" y="0" width="52" height="52" rx="12" fill="url(#rg)"/><path d="M6 40 L18 22 L26 32 L34 16 L46 40 Z" fill="#f59e0b"/><path d="M14 40 L23 27 L30 36 L38 24 L46 40 Z" fill="#fbbf24" opacity=".55"/><path d="M34 16 L29 23 L34 21 L39 23 Z" fill="#fff7ed" opacity=".9"/></g>' +
+      '<g transform="translate(68,18)" fill="#0f2a43"><text x="0" y="18" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="1.2">SIERRA MADRE</text><text x="0" y="38" font-family="Segoe UI, Arial, sans-serif" font-size="11.5" font-weight="600" letter-spacing="2.2" fill="#64748b">GOLD &amp; SILVER</text></g></svg>';
+  }
+
+  function snapshotCharts(defs) {
+    var host = document.createElement('div');
+    host.setAttribute('data-pdf-snap', '1');
+    host.style.cssText = 'position:fixed;left:-10000px;top:0;width:980px;background:#fff;color:#0b1220;z-index:-1;pointer-events:none;font-family:Segoe UI,Arial,sans-serif;';
+    document.body.appendChild(host);
+    var out = {};
+    defs.forEach(function (d) {
+      var box = document.createElement('div');
+      box.id = 'snap_' + d.id;
+      box.style.cssText = 'width:' + (d.width || 940) + 'px;min-height:120px;padding:4px;';
+      host.appendChild(box);
+      try { d.draw(box); } catch (e) { box.innerHTML = '<div style="color:#64748b;font-size:12px">No disponible</div>'; }
+      out[d.id] = box.innerHTML || '<div style="color:#64748b;font-size:12px">Sin datos</div>';
+    });
+    host.remove();
+    return out;
+  }
+
+  function pdfKpi(label, value, sub, kind) {
+    return '<div class="rkpi ' + (kind||'') + '"><div class="rk">' + esc(label) + '</div><div class="rv">' + value + '</div><div class="rs">' + esc(sub||'') + '</div></div>';
+  }
+  function pdfSection(title, sub, body) {
+    return '<section class="rsec"><div class="rsec-head"><div><h2>' + esc(title) + '</h2>' + (sub?'<p>'+esc(sub)+'</p>':'') + '</div></div>' + body + '</section>';
+  }
+
+  function pdfCss() {
+    return '' +
+      '<style>' +
+      '@page{size:A4;margin:14mm 12mm 14mm 12mm}' +
+      '*{box-sizing:border-box} html,body{margin:0;padding:0;color:#0b1220;background:#fff;font-family:"Segoe UI",Roboto,Arial,sans-serif;font-size:11px;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+      '.rcover{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding:14px 16px 12px;margin-bottom:14px;border-radius:14px;background:linear-gradient(135deg,#0b2440 0%,#123a63 55%,#1d5d96 100%);color:#fff;position:relative;overflow:hidden}' +
+      '.rcover:after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.35),rgba(245,158,11,0) 70%)}' +
+      '.rcover .left{min-width:0;position:relative;z-index:1}.rcover h1{margin:6px 0 2px;font-size:22px;letter-spacing:-.02em;font-weight:800}.rcover .sub{font-size:12px;opacity:.92}.rcover .period{margin-top:6px;font-size:12.5px;font-weight:700;color:#fde68a}' +
+      '.rcover .meta{text-align:right;font-size:10.5px;opacity:.95;position:relative;z-index:1}.rcover .meta div{margin-top:2px}.rtag{display:inline-block;margin-top:6px;padding:3px 9px;border-radius:999px;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.35);color:#fde68a;font-weight:700;font-size:10.5px}' +
+      '.rbrand{display:flex;align-items:center;gap:10px}.rbrand svg{background:#fff;border-radius:8px;padding:2px 4px}' +
+      '.rgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0 14px}' +
+      '.rkpi{border:1px solid #e2e8f0;border-radius:12px;padding:10px 11px;background:#f8fafc;break-inside:avoid}.rkpi .rk{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b}.rkpi .rv{font-size:17px;font-weight:800;margin-top:4px;letter-spacing:-.02em;color:#0b2440}.rkpi .rs{font-size:10px;color:#64748b;margin-top:2px}.rkpi.good .rv{color:#047857}.rkpi.bad .rv{color:#b91c1c}' +
+      '.rsec{margin:0 0 14px;break-inside:avoid-page}.rsec-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.rsec-head h2{margin:0;font-size:14px;font-weight:800;color:#0b2440}.rsec-head p{margin:2px 0 0;font-size:10.5px;color:#64748b}' +
+      '.rcols{display:grid;grid-template-columns:1fr 1fr;gap:12px}.rchart{border:1px solid #e2e8f0;border-radius:12px;padding:8px;background:#fff;min-height:120px;break-inside:avoid}.rchart h3{margin:0 0 6px;font-size:11.5px;color:#334155}' +
+      'table{width:100%;border-collapse:collapse;font-size:10.5px}th,td{padding:6px 7px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}thead th{background:#f1f5f9;color:#334155;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}tfoot td{font-weight:800;background:#f8fafc}.num{text-align:right}.mono{font-family:ui-monospace,Consolas,monospace}.muted{color:#64748b}.pos{color:#047857}.neg{color:#b91c1c}' +
+      '.rwrap{padding:0}.rbadge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:9.5px;font-weight:700;background:#e2e8f0;color:#334155}.rbadge.ok{background:#dcfce7;color:#047857}.rbadge.warn{background:#fef3c7;color:#92400e}.rbadge.bad{background:#fee2e2;color:#b91c1c}' +
+      '.rfoot{margin-top:14px;padding-top:8px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;color:#64748b;font-size:10px}' +
+      '.break{break-before:page}.avoid{break-inside:avoid}' +
+      '@media print{.no-print{display:none !important}}' +
+      '</style>';
+  }
+
+  function openReportWindow(title, bodyHtml) {
+    var w = window.open('', '_blank');
+    if (!w) { toast('Permite las ventanas emergentes para generar el PDF.', 'err'); return null; }
+    var doc = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(title) + '</title>' + pdfCss() + '</head><body>' + bodyHtml +
+      '<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},350);};<\/script></body></html>';
+    w.document.open();
+    w.document.write(doc);
+    w.document.close();
+    return w;
+  }
+
+  function pdfDieselReport() {
+    var desde = ui.tab === 'bitacora' ? ui.bitacora.desde : ui.rep.desde;
+    var hasta = ui.tab === 'bitacora' ? ui.bitacora.hasta : ui.rep.hasta;
+    if (!desde || !hasta || desde > hasta) { toast('Selecciona un periodo válido.', 'err'); return; }
+    var cfg = Store.getConfig();
+    var daily = dailyRange(desde, hasta);
+    var charges = Store.getCharges().filter(function (c) { return c.fecha >= desde && c.fecha <= hasta; });
+    var boba = Store.getBoba().filter(function (b) { return b.fecha >= desde && b.fecha <= hasta; });
+    var a = computeAnalytics(charges, boba, daily);
+    var lecturas = daily.filter(function (d) { return d.tieneDato; }).length;
+    var dias = daily.filter(function (d) { return d.tieneDato || d.n; }).length;
+    var pctCobertura = daily.length ? Math.round((dias / daily.length) * 100) : 0;
+    var topCat = a.byCat[0], topEq = a.topEquipos[0], topDep = a.byDepto[0];
+    var t1 = (a.byTurno.find(function (x) { return x.label === '1'; }) || {}).value || 0;
+    var t2 = (a.byTurno.find(function (x) { return x.label === '2'; }) || {}).value || 0;
+    var turnoPct = a.totalCargas > 0 ? ('T1 ' + nf((t1 / a.totalCargas) * 100, 1) + '% · T2 ' + nf((t2 / a.totalCargas) * 100, 1) + '%') : '—';
+
+    var snaps = snapshotCharts([
+      { id: 'trend', draw: function (el) { DieselCharts.combo(el, { labels: daily.map(function (d) { return fmtShort(d.fecha); }), bars: daily.map(function (d) { return d.cargas == null ? 0 : d.cargas; }), line: daily.map(function (d) { return d.boba == null ? null : d.boba; }), barUnit: 'L cargados', lineUnit: 'L boba', aria: 'Tendencia diaria' }); } },
+      { id: 'acum', draw: function (el) { if (a.cumLabels.length) DieselCharts.combo(el, { labels: a.cumLabels, bars: a.cumCargas, line: a.cumBoba, barUnit: 'L acum. cargas', lineUnit: 'L acum. boba', aria: 'Acumulado' }); else el.innerHTML = '<div class="empty-chart">Sin datos</div>'; } },
+      { id: 'cat', width: 460, draw: function (el) { DieselCharts.barh(el, { labels: a.byCat.map(function (x) { return x.label; }), values: a.byCat.map(function (x) { return x.value; }), unit: 'L', aria: 'Por categoría' }); } },
+      { id: 'turno', width: 460, draw: function (el) { DieselCharts.donut(el, { labels: a.byTurno.map(function (x) { return 'Turno ' + x.label; }), values: a.byTurno.map(function (x) { return x.value; }), unit: 'L', colors: ['#f59e0b', '#0ea5e9', '#8b5cf6'], aria: 'Por turno' }); } },
+      { id: 'equipos', width: 460, draw: function (el) { DieselCharts.barh(el, { labels: a.topEquipos.map(function (x) { return x.label; }), values: a.topEquipos.map(function (x) { return x.value; }), unit: 'L', colors: ['#0ea5e9', '#38bdf8', '#7dd3fc', '#f59e0b', '#fbbf24', '#22c55e', '#8b5cf6', '#ef4444', '#14b8a6', '#eab308'], aria: 'Top equipos' }); } },
+      { id: 'depto', width: 460, draw: function (el) { DieselCharts.barh(el, { labels: a.byDepto.map(function (x) { return x.label; }), values: a.byDepto.map(function (x) { return x.value; }), unit: 'L', colors: ['#22c55e', '#4ade80', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444'], aria: 'Por departamento' }); } }
+    ]);
+
+    var dailyRows = daily.map(function (d) {
+      return '<tr><td><strong>' + esc(fmtShort(d.fecha)) + '</strong> <span class="muted">' + esc(weekday(d.fecha).slice(0, 3)) + '</span></td><td class="num">' + (d.boba == null ? '—' : nf(d.boba, 1)) + '</td><td>' + esc(d.fuente || '—') + '</td><td class="num">' + (d.cargas == null ? '—' : nf(d.cargas, 1)) + '</td><td class="num ' + (d.diff == null ? '' : Math.abs(d.diff) <= 1 ? 'pos' : 'neg') + '">' + (d.diff == null ? '—' : (d.diff > 0 ? '+' : '') + nf(d.diff, 1)) + '</td><td class="num">' + d.n + '</td><td>' + esc(d.estado || '') + '</td></tr>';
+    }).join('');
+    var catRows = a.byCat.map(function (x) {
+      var n = charges.filter(function (c) { return c.categoria === x.label; }).length;
+      var pct = a.totalCargas > 0 ? (x.value / a.totalCargas) * 100 : 0;
+      return '<tr><td><strong>' + esc(x.label) + '</strong></td><td class="num">' + nf(x.value, 1) + '</td><td class="num">' + nf(pct, 1) + '%</td><td class="num">' + n + '</td><td class="num">' + nf(n ? x.value / n : 0, 1) + '</td></tr>';
+    }).join('');
+
+    var bobaRows = daily.filter(function (d) { return d.tieneDato || d.n; }).slice(0, 120).map(function (d) {
+      var recs = Store.getBoba().filter(function (b) { return b.fecha === d.fecha; }).sort(function (x, y) { return String(x.turno).localeCompare(String(y.turno)); });
+      var lect = recs.length ? recs.map(function (b) { return (b.turno === 'D' ? 'Día' : 'T' + b.turno) + ': ' + (b.inicial == null ? '—' : nf(b.inicial, 2)) + ' → ' + (b.final == null ? '—' : nf(b.final, 2)) + ' = ' + (b.litros == null ? '—' : nf(b.litros, 2) + ' L'); }).join('<br>') : '—';
+      var diff = (d.boba == null || d.cargas == null) ? null : d.boba - d.cargas;
+      return '<tr><td class="mono">' + esc(fmtShort(d.fecha)) + '</td><td>' + lect + '</td><td class="num">' + (d.boba == null ? '—' : nf(d.boba, 2)) + '</td><td class="num">' + (d.cargas == null ? '—' : nf(d.cargas, 2)) + '</td><td class="num ' + (diff == null ? '' : Math.abs(diff) <= 1 ? 'pos' : 'neg') + '">' + (diff == null ? '—' : (diff > 0 ? '+' : '') + nf(diff, 2)) + '</td></tr>';
+    }).join('');
+
+    var body = '' +
+      '<div class="rcover"><div class="left"><div class="rbrand">' + reportLogoSvg(false) + '</div><h1>Reporte de Diésel</h1><div class="sub">Cuenta litros, cargas y análisis operativo</div><div class="period">Periodo: ' + esc(fmtDate(desde, true)) + ' a ' + esc(fmtDate(hasta, true)) + '</div></div>' +
+      '<div class="meta"><div><strong>' + esc(cfg.empresa || 'Empresa') + '</strong></div>' + (cfg.razonSocial ? '<div>' + esc(cfg.razonSocial) + '</div>' : '') + '<div>Generado: ' + esc(fmtDateTime(new Date().toISOString())) + '</div><div class="rtag">Formato avanzado · Diésel</div></div></div>' +
+
+      pdfSection('Resumen ejecutivo', 'Indicadores clave del periodo', '<div class="rgrid">' +
+        pdfKpi('Litros boba (cuenta litros)', litros(lecturas ? a.totalBoba : null, 1), lecturas + ' días con lectura · ' + (daily.filter(function(d){return d.fuente==='día';}).length) + ' por día', '') +
+        pdfKpi('Litros cargados', litros(a.totalCargas, 1), charges.length + ' renglones de carga', '') +
+        pdfKpi('Diferencia', lecturas ? (a.diff > 0 ? '+' : '') + nf(a.diff, 1) + ' L' : '—', nf(a.diffPct, 1) + '% respecto a cargas', lecturas && Math.abs(a.diffPct) > 3 ? 'bad' : 'good') +
+        pdfKpi('Cobertura', pctCobertura + '%', dias + ' de ' + daily.length + ' días con datos', pctCobertura >= 80 ? 'good' : '') +
+        pdfKpi('Promedio diario (cargas)', litros(a.promDia || null, 1), a.daysWith + ' días con actividad', '') +
+        pdfKpi('Promedio boba por día', litros(a.promBoba || null, 1), a.lecturas + ' días con lectura', '') +
+        pdfKpi('Día de mayor consumo', a.pico ? litros(a.pico.cargas, 1) : '—', a.pico ? (fmtDate(a.pico.fecha) + ' · ' + a.pico.n + ' cargas') : 'Sin datos', '') +
+        pdfKpi('Distribución por turno', turnoPct, 'Top cat: ' + (topCat ? topCat.label : '—') + ' · Top eq: ' + (topEq ? topEq.label : '—'), '') +
+      '</div>') +
+
+      pdfSection('Tendencia y consumo acumulado', 'Barras: litros cargados · Línea: litros boba considerados por día',
+        '<div class="rchart" style="margin-bottom:10px"><h3>Consumo diario</h3>' + snaps.trend + '</div>' +
+        '<div class="rchart"><h3>Consumo acumulado del periodo</h3>' + snaps.acum + '</div>') +
+
+      pdfSection('Distribución y principales consumos', 'Categorías, turnos, equipos y departamentos',
+        '<div class="rcols" style="margin-bottom:10px"><div class="rchart"><h3>Por categoría</h3>' + snaps.cat + '</div><div class="rchart"><h3>Por turno</h3>' + snaps.turno + '</div></div>' +
+        '<div class="rcols"><div class="rchart"><h3>Top 10 equipos</h3>' + snaps.equipos + '</div><div class="rchart"><h3>Por departamento</h3>' + snaps.depto + '</div></div>') +
+
+      pdfSection('Detalle por día (boba vs cargas)', 'Comparación diaria considerada (por día o turnos)',
+        daily.length ? '<table><thead><tr><th>Fecha</th><th class="num">Boba</th><th>Fuente</th><th class="num">Cargas</th><th class="num">Diferencia</th><th class="num">#</th><th>Estado</th></tr></thead><tbody>' + dailyRows +
+          '</tbody><tfoot><tr><td><strong>Total</strong></td><td class="num"><strong>' + nf(a.totalBoba, 1) + '</strong></td><td></td><td class="num"><strong>' + nf(a.totalCargas, 1) + '</strong></td><td class="num"><strong>' + nf(a.totalBoba - a.totalCargas, 1) + '</strong></td><td class="num"><strong>' + charges.length + '</strong></td><td></td></tr></tfoot></table>' :
+          '<p class="muted">Sin datos en el periodo.</p>') +
+
+      (catRows ? pdfSection('Detalle por categoría', 'Participación y promedios de carga',
+        '<table><thead><tr><th>Categoría</th><th class="num">Litros</th><th class="num">%</th><th class="num">Cargas</th><th class="num">Promedio/carga</th></tr></thead><tbody>' + catRows + '</tbody></table>') : '') +
+
+      pdfSection('Cuenta litros y cotejo con salidas', 'Lecturas de contador (inicial → final) vs cargas por día',
+        bobaRows ? '<table><thead><tr><th>Fecha</th><th>Lecturas contador (inicial → final = litros)</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th></tr></thead><tbody>' + bobaRows + '</tbody></table>' : '<p class="muted">Sin lecturas de cuenta litros en el periodo.</p>') +
+
+      '<div class="rfoot"><div>Control de diésel · Sierra Madre · Reporte generado automáticamente</div><div>' + esc(fmtDateTime(new Date().toISOString())) + '</div></div>';
+
+    openReportWindow('Reporte Diésel ' + desde + ' a ' + hasta, body);
+    toast('Generando reporte PDF de diésel…', 'ok');
+  }
+
+  function pdfAceitesReport() {
+    var desde, hasta;
+    if (ui.tab === 'bitacora-aceites' && ui.bitacoraAceites) { desde = ui.bitacoraAceites.desde; hasta = ui.bitacoraAceites.hasta; }
+    else if (ui.aceites) { desde = ui.aceites.desde; hasta = ui.aceites.hasta; }
+    if (!desde) desde = monthStart(todayISO());
+    if (!hasta) hasta = monthEnd(todayISO());
+    if (!desde || !hasta || desde > hasta) { toast('Selecciona un periodo válido de aceites.', 'err'); return; }
+    var cfg = Store.getConfig();
+    var dispatches = Store.getAceiteDispatches().filter(function (r) { return r.fecha >= desde && r.fecha <= hasta; });
+    var meters = Store.getAceiteMeters().filter(function (r) { return r.fecha >= desde && r.fecha <= hasta; });
+    var daily = aceitesDailyRange(desde, hasta);
+    var a = aceitesAnalytics(dispatches, meters, daily);
+    if (!dispatches.length && !meters.length) { toast('No hay datos de aceites en el periodo para generar el reporte.', 'err'); return; }
+    var topProd = a.byProd[0], topEq = a.topEquipos[0], topMot = a.byMotivo[0];
+    var diffG = a.totalCuenta - a.totalSalidas;
+
+    var snaps = snapshotCharts([
+      { id: 'atrend', draw: function (el) { DieselCharts.combo(el, { labels: daily.map(function (d) { return fmtShort(d.fecha); }), bars: daily.map(function (d) { return d.salidas || 0; }), line: daily.map(function (d) { return d.cuenta == null ? null : d.cuenta; }), barUnit: 'L salidas', lineUnit: 'L cuenta litros', aria: 'Tendencia aceites' }); } },
+      { id: 'aprod', width: 460, draw: function (el) { DieselCharts.donut(el, { labels: a.byProd.map(function (x) { return x.label; }), values: a.byProd.map(function (x) { return x.value; }), unit: 'L', colors: ['#f59e0b', '#0ea5e9', '#22c55e', '#8b5cf6', '#ef4444'], aria: 'Por producto' }); } },
+      { id: 'amot', width: 460, draw: function (el) { DieselCharts.barh(el, { labels: a.byMotivo.map(function (x) { return x.label; }), values: a.byMotivo.map(function (x) { return x.value; }), unit: 'L', aria: 'Por motivo' }); } },
+      { id: 'aeq', width: 460, draw: function (el) { DieselCharts.barh(el, { labels: a.topEquipos.map(function (x) { return x.label; }), values: a.topEquipos.map(function (x) { return x.value; }), unit: 'L', colors: ['#0ea5e9', '#38bdf8', '#7dd3fc', '#f59e0b', '#fbbf24', '#22c55e', '#8b5cf6', '#ef4444', '#14b8a6', '#eab308'], aria: 'Top equipos' }); } },
+      { id: 'acomp', width: 460, draw: function (el) { DieselCharts.barh(el, { labels: a.byComp.map(function (x) { return x.label; }), values: a.byComp.map(function (x) { return x.value; }), unit: 'L', colors: ['#22c55e', '#4ade80', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444'], aria: 'Por compartimento' }); } }
+    ]);
+
+    var prodRows = a.byProd.map(function (x) {
+      var n = dispatches.filter(function (r) { return (Store.canonProductoAceite ? Store.canonProductoAceite(r.tipoAceite) : (r.tipoAceite || '')) === x.label; }).length;
+      var pct = a.totalSalidas > 0 ? (x.value / a.totalSalidas) * 100 : 0;
+      return '<tr><td><strong>' + esc(x.label) + '</strong></td><td class="num">' + nf(x.value, 1) + '</td><td class="num">' + nf(pct, 1) + '%</td><td class="num">' + n + '</td><td class="num">' + nf(n ? x.value / n : 0, 1) + '</td></tr>';
+    }).join('');
+
+    var meterRows = [];
+    daily.forEach(function (d) {
+      ACEITE_PRODUCTOS.forEach(function (prod) {
+        var rec = Store.aceiteBobaFor ? Store.aceiteBobaFor(d.fecha, prod) : (Store.getAceiteMeters().find(function (r) { return r.fecha === d.fecha && (Store.canonProductoAceite ? Store.canonProductoAceite(r.producto) : r.producto) === prod; }));
+        var salArr = Store.getAceiteDispatches().filter(function (r) { return r.fecha === d.fecha && (Store.canonProductoAceite ? Store.canonProductoAceite(r.tipoAceite) : r.tipoAceite) === prod; });
+        var sal = sum(salArr, function (r) { return r.litros; });
+        if (!rec && !salArr.length) return;
+        var cont = rec && rec.litros != null ? rec.litros : null;
+        var diff = cont == null ? null : cont - sal;
+        meterRows.push('<tr><td class="mono">' + esc(fmtShort(d.fecha)) + '</td><td>' + esc(prod) + '</td><td class="num">' + (rec && rec.inicial != null ? nf(rec.inicial, 2) : '—') + '</td><td class="num">' + (rec && rec.final != null ? nf(rec.final, 2) : '—') + '</td><td class="num">' + (cont == null ? '—' : nf(cont, 2)) + '</td><td class="num">' + nf(sal || 0, 2) + '</td><td class="num ' + (diff == null ? '' : Math.abs(diff) <= 1 ? 'pos' : 'neg') + '">' + (diff == null ? '—' : (diff > 0 ? '+' : '') + nf(diff, 2)) + '</td></tr>');
+      });
+    });
+
+    var dispRows = dispatches.slice().sort(function (a, b) { return a.fecha.localeCompare(b.fecha) || (a.equipo || '').localeCompare(b.equipo || ''); }).slice(0, 200).map(function (r) {
+      return '<tr><td class="mono">' + esc(fmtShort(r.fecha)) + '</td><td><strong>' + esc(r.equipo || '') + '</strong></td><td>' + esc(r.tipoAceite || '') + '</td><td>' + esc(r.compartimento || '') + '</td><td>' + esc(r.motivo || '') + '</td><td class="num">' + nf(r.litros, 2) + '</td><td>' + esc(r.mecanico || '') + '</td><td class="mono">' + esc(r.folio || '') + '</td></tr>';
+    }).join('');
+
+    var body = '' +
+      '<div class="rcover"><div class="left"><div class="rbrand">' + reportLogoSvg(false) + '</div><h1>Reporte de Aceites</h1><div class="sub">Motor Shell e Hidráulico Shell · salidas, cuenta litros y análisis</div><div class="period">Periodo: ' + esc(fmtDate(desde, true)) + ' a ' + esc(fmtDate(hasta, true)) + '</div></div>' +
+      '<div class="meta"><div><strong>' + esc(cfg.empresa || 'Empresa') + '</strong></div>' + (cfg.razonSocial ? '<div>' + esc(cfg.razonSocial) + '</div>' : '') + '<div>Generado: ' + esc(fmtDateTime(new Date().toISOString())) + '</div><div class="rtag">Formato avanzado · Aceites</div></div></div>' +
+
+      pdfSection('Resumen ejecutivo', 'Indicadores clave del periodo', '<div class="rgrid">' +
+        pdfKpi('Litros salidas', nf(a.totalSalidas, 1) + ' L', a.registros + ' renglones de despacho', '') +
+        pdfKpi('Litros cuenta litros', nf(a.totalCuenta, 1) + ' L', a.lecturas + ' lecturas registradas', '') +
+        pdfKpi('Diferencia global', nf(diffG, 1) + ' L', 'cuenta litros — salidas', Math.abs(diffG) > 1 ? 'bad' : 'good') +
+        pdfKpi('Promedio diario', nf(a.promDia, 1) + ' L', a.daysWith + ' días con actividad', '') +
+        pdfKpi('Día pico (salidas)', a.pico && a.pico.salidas ? nf(a.pico.salidas, 1) + ' L' : '—', a.pico && a.pico.salidas ? fmtDate(a.pico.fecha) : 'Sin datos', '') +
+        pdfKpi('Top producto', topProd ? topProd.label : '—', topProd ? nf(topProd.value, 1) + ' L' : '', '') +
+        pdfKpi('Top equipo', topEq ? topEq.label : '—', topEq ? nf(topEq.value, 1) + ' L' : '', '') +
+        pdfKpi('Top motivo', topMot ? topMot.label : '—', topMot ? nf(topMot.value, 1) + ' L' : '', '') +
+      '</div>') +
+
+      pdfSection('Tendencia de consumo', 'Barras: litros de salidas por día · Línea: litros cuenta litros (suma productos)',
+        '<div class="rchart">' + snaps.atrend + '</div>') +
+
+      pdfSection('Distribución de consumo', 'Por producto, motivo, equipo y compartimento',
+        '<div class="rcols" style="margin-bottom:10px"><div class="rchart"><h3>Por producto</h3>' + snaps.aprod + '</div><div class="rchart"><h3>Por motivo</h3>' + snaps.amot + '</div></div>' +
+        '<div class="rcols"><div class="rchart"><h3>Top 10 equipos</h3>' + snaps.aeq + '</div><div class="rchart"><h3>Por compartimento</h3>' + snaps.acomp + '</div></div>') +
+
+      (prodRows ? pdfSection('Detalle por producto', 'Participación y promedios de salida',
+        '<table><thead><tr><th>Producto</th><th class="num">Litros</th><th class="num">%</th><th class="num">Salidas</th><th class="num">Promedio/salida</th></tr></thead><tbody>' + prodRows + '</tbody></table>') : '') +
+
+      pdfSection('Cuenta litros y cotejo con salidas', 'Lecturas por producto y día (contador vs salidas)',
+        meterRows.length ? '<table><thead><tr><th>Fecha</th><th>Producto</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th></tr></thead><tbody>' + meterRows.join('') + '</tbody></table>' : '<p class="muted">Sin lecturas de cuenta litros en el periodo.</p>') +
+
+      (dispRows ? pdfSection('Detalle de salidas/despachos', dispatches.length > 200 ? 'Mostrando primeros 200 de ' + dispatches.length + ' renglones' : dispatches.length + ' renglones del periodo',
+        '<table><thead><tr><th>Fecha</th><th>Equipo</th><th>Tipo de aceite</th><th>Compartimento</th><th>Motivo</th><th class="num">Litros</th><th>Mecánico</th><th>Folio</th></tr></thead><tbody>' + dispRows + '</tbody></table>') : '') +
+
+      '<div class="rfoot"><div>Control de diésel y aceites · Sierra Madre · Reporte generado automáticamente</div><div>' + esc(fmtDateTime(new Date().toISOString())) + '</div></div>';
+
+    openReportWindow('Reporte Aceites ' + desde + ' a ' + hasta, body);
+    toast('Generando reporte PDF de aceites…', 'ok');
   }
 
 })();

@@ -15,11 +15,21 @@ GitHub, que hace de base de datos y de historial de cambios.
 
 | Sección | Para qué sirve |
 | --- | --- |
-| **Día** | Captura la lectura inicial y final de la boba en los dos turnos, calcula los litros del turno y los compara contra las cargas del día. |
-| **Boba** | Historial mensual de lecturas: inicial, final, litros, cargas y diferencia por turno. Detecta días con cargas pero sin lectura. |
+| **Dashboard** | Resumen operativo con KPIs, tendencia, distribución y consumos principales (diésel). |
+| **Día** | Captura la cuenta litros por turno o por día completo y compara contra las cargas del día. |
+| **Cuenta litros** | Historial y captura mensual de lecturas (por turno o por día), inicial/final/litros y diferencias. |
 | **Cargas** | Alta, edición, borrado y filtros del concentrado por equipo: categoría, horómetro, litros, departamento, operador, responsable, folio y ubicación. |
-| **Reportes** | KPIs del periodo, gráfica de consumo diario, detalle por día, **importación del concentrado .xlsx**, exportación al mismo formato y CSV/PDF. |
+| **Bitácora** | Concentrado en formato de reporte: importación/exportación del mismo Excel (.xlsx), CSV, impresión y cotejo de contadores vs salidas. |
+| **Bitácora aceites** | Cotejo independiente de contadores de aceites (por producto) vs salidas por día. |
+| **Reportes** | KPIs del periodo, gráficas, detalle por día, análisis avanzado e **importación/exportación** (.xlsx/CSV) y **reporte PDF avanzado de diésel**. |
+| **Aceites** | Captura diaria de salidas y cuenta litros (Motor Shell, Hidráulico Shell), dashboard/gráficos, importación/exportación y **reporte PDF avanzado de aceites**. |
+| **Usuarios** | Módulo inicial local de administración de accesos/usuarios. |
 | **Ajustes** | Empresa, catálogos, tope del contador, conexión con GitHub, datos de ejemplo y borrado local. |
+
+### Reportes PDF avanzados (nuevo)
+- **Diésel:** genera un reporte moderno en PDF (vía impresión del navegador) con portada, KPIs ejecutivos, gráficas (tendencia/acumulado/distribución/top), detalle diario, detalle por categoría y cotejo de cuenta litros vs salidas.
+- **Aceites:** genera un reporte moderno en PDF con KPIs, tendencia, distribución (producto/motivo/equipo/compartimento), detalle por producto, cotejo de cuenta litros por producto y detalle de salidas.
+- Ubicación: botones **“Reporte PDF diésel”** en *Reportes* y *Bitácora*, y **“Reporte PDF aceites”** en *Aceites* y *Bitácora aceites*. Selecciona el periodo deseado antes de generar. Si el navegador bloquea ventanas emergentes, permítelas para abrir el reporte.
 
 ### Lógica de la boba
 
