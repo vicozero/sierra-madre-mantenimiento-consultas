@@ -1646,7 +1646,7 @@
       return;
     }
     try {
-      const bytes = AceitesXLSX.build({ config: Store.getConfig(), dispatches, meters, desde, hasta });
+      const bytes = AceitesXLSX.build({ config: Store.getConfig(), dispatches, meters, desde, hasta, producto: soloProducto || '' });
       const base = AceitesXLSX.filename(desde, hasta).replace(/\.xlsx$/i, '');
       const sufijo = soloProducto ? '_' + soloProducto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_') : '';
       const name = (soloProducto ? base.replace(/^REPORTE_ACEITES_/, 'BITACORA_ACEITES_') : base) + sufijo + '.xlsx';

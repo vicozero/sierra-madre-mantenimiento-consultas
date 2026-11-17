@@ -5,7 +5,10 @@
      Horometro, Tipo de aceite, Compartimento, Motivo, Litros,
      Precio/L, Importe, Mecánico, Responsable, Folio / orden.
    - Soporta cuenta litros del despacho por producto (Motor Shell /
-     Hidráulico Shell) en hoja "CUENTA LITROS" (exportada e importada).
+     Hidráulico Shell). Exporta hojas separadas por producto ("SALIDAS MOTOR" /
+      "SALIDAS HIDRAULICO" y sus "CUENTA LITROS"), e importa todas
+      las hojas reconocidas (incluido el formato combinado antiguo
+      "REPORTE ACEITES").
    - Sin dependencias externas salvo fflate (ZIP), incluido local.
    ============================================================= */
 window.AceitesXLSX = (function () {
@@ -148,7 +151,8 @@ window.AceitesXLSX = (function () {
     rows.push('<row r="3"/>');
     rows.push(rowXml(4, [cellText('C4', STYLE.company, cfg.razonSocial || 'LA GUITARRA COMPAÑÍA MINERA SA DE CV.')]));
     rows.push('<row r="5"/>');
-    rows.push(rowXml(6, [cellText('C6', STYLE.subtitle, cfg.tituloAceites || 'BITACORA CONSUMO DE ACEITES Y LUBRICANTES · EQUIPO DIESEL MINA, PLANTA Y VEHICULOS LIGEROS.')]));
+    const baseSubtitle = cfg.tituloAceites || 'BITACORA CONSUMO DE ACEITES Y LUBRICANTES · EQUIPO DIESEL MINA, PLANTA Y VEHICULOS LIGEROS.';
+    rows.push(rowXml(6, [cellText('C6', STYLE.subtitle, opt.productLabel ? (String(opt.productLabel).toUpperCase() + ' — ' + baseSubtitle) : baseSubtitle)]));
     rows.push('<row r="7"/>');
     const headers = ['Fecha','Equipo','Descripción','Horometro','Tipo de aceite','Compartimento','Motivo','Litros','Precio/L','Importe','Mecánico','Responsable','Folio / orden'];
     rows.push(rowXml(8, headers.map((h,i)=>cellText(colLetter(i+1)+'8', STYLE.header, h)), 'ht="28" customHeight="1"'));
@@ -219,7 +223,7 @@ window.AceitesXLSX = (function () {
     const meters = (opt.meters || []).slice().sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)) || String(a.producto||'').localeCompare(String(b.producto||'')));
     const salidaBy = opt.salidaBy || {}; // key fecha|producto
     const rows = [];
-    rows.push(rowXml(1, [cellText('A1', STYLE.title, 'CUENTA LITROS ACEITES — ' + (cfg.empresa || ''))], 'ht="22" customHeight="1"'));
+    rows.push(rowXml(1, [cellText('A1', STYLE.title, 'CUENTA LITROS — ' + (opt.productLabel ? String(opt.productLabel).toUpperCase() + ' — ' : 'ACEITES — ') + (cfg.empresa || ''))], 'ht="22" customHeight="1"'));
     rows.push(rowXml(2, [cellText('A2', STYLE.company, cfg.razonSocial || '')]));
     rows.push('<row r="3"/>');
     const headers = ['Fecha','Producto','Lectura inicial','Lectura final','Litros (cuenta litros)','Litros salidas','Diferencia','Notas'];
@@ -273,10 +277,38 @@ window.AceitesXLSX = (function () {
       const k = d.fecha + '|' + prod;
       salidaBy[k] = (salidaBy[k] || 0) + (Number(d.litros)||0);
     });
-    const sheets = [
-      { name: 'REPORTE ACEITES', xml: buildMainSheet({ config: cfg, dispatches }) },
-      { name: 'CUENTA LITROS', xml: buildBobaSheet({ config: cfg, meters, salidaBy }) }
-    ];
+
+    // Separar la informacion por producto (Motor Shell / Hidraulico Shell).
+    // Cada producto lleva su propia hoja de salidas y su propia hoja de cuenta litros.
+    const groups = new Map();
+    const addGroup = (label)=>{ if(!groups.has(label)) groups.set(label,{ label, dispatches:[], meters:[] }); return groups.get(label); };
+    dispatches.forEach(d=>{ const p = canonProducto(d.tipoAceite) || 'OTROS'; addGroup(p).dispatches.push(d); });
+    meters.forEach(m=>{ const p = canonProducto(m.producto) || text(m.producto) || 'OTROS'; addGroup(p).meters.push(m); });
+
+    // Si se indico un producto, conservar solo ese grupo (defensa extra ademas del filtro de la app).
+    const only = o.producto ? (canonProducto(o.producto) || text(o.producto)) : '';
+    const list = Array.from(groups.values()).filter(g=> !only || g.label===only);
+
+    const shortName = (label)=>{
+      const s = canonProducto(label) || text(label) || 'OTROS';
+      const n = norm(s);
+      if (n.indexOf('motor')!==-1) return 'MOTOR';
+      if (n.indexOf('hidraul')!==-1 || n.indexOf('spirax')!==-1) return 'HIDRAULICO';
+      const clean = String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,12).toUpperCase();
+      return clean || 'OTROS';
+    };
+
+    const sheets = [];
+    list.forEach(g=>{
+      const sn = shortName(g.label);
+      sheets.push({ name: ('SALIDAS ' + sn).slice(0,31), xml: buildMainSheet({ config: cfg, dispatches: g.dispatches, productLabel: g.label }) });
+      sheets.push({ name: ('CUENTA LITROS ' + sn).slice(0,31), xml: buildBobaSheet({ config: cfg, meters: g.meters, salidaBy, productLabel: g.label }) });
+    });
+    if (!sheets.length) {
+      // Respaldo: nunca generar un libro vacio.
+      sheets.push({ name: 'REPORTE ACEITES', xml: buildMainSheet({ config: cfg, dispatches }) });
+      sheets.push({ name: 'CUENTA LITROS', xml: buildBobaSheet({ config: cfg, meters, salidaBy }) });
+    }
     const files = {
       '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
@@ -361,7 +393,7 @@ window.AceitesXLSX = (function () {
     const shared = sharedStrings(files);
     const sheets = sheetList(files);
     const warnings=[];
-    let dispatches=[]; let meters=[]; let mainSheet='', bobaSheet='';
+    let dispatches=[]; let meters=[]; const mainSheets=[], bobaSheets=[];
     const parsedSheets = sheets.map(s=>{ const xml=files[s.path]?dec.decode(files[s.path]):''; return {name:s.name,path:s.path,rows:xml?parseSheet(xml,shared):[]}; }).filter(s=>s.rows.length);
 
     // Main dispatch sheet: headers include fecha, equipo, litros, tipo de aceite (or aceite/producto)
@@ -375,7 +407,7 @@ window.AceitesXLSX = (function () {
       const cComp = col('compartimento'); const cMot = col('motivo'); const cLit = col('litros');
       const cPrecio = col('precio'); const cImp = col('importe'); const cMec = col('mecanico','mec nico'); const cResp = col('responsable'); const cFolio = col('folio','orden');
       if(!cFecha || !cEq || !cLit) continue;
-      mainSheet = s.name;
+      mainSheets.push(s.name);
       s.rows.forEach(row=>{
         if(row.num <= h.row) return;
         const fecha = asDate(getCell(row,cFecha)); if(!fecha) return;
@@ -401,12 +433,11 @@ window.AceitesXLSX = (function () {
           notas: ''
         });
       });
-      break;
     }
 
-    // Cuenta litros sheet
+    // Cuenta litros sheet (puede haber una por producto)
     for(const s of parsedSheets){
-      if(s.name===mainSheet) continue;
+      if(mainSheets.indexOf(s.name)!==-1) continue;
       const h = findHeader(s.rows, ['fecha','producto']);
       if(!h){
         // try fecha + (lectura inicial|inicial) as oil meter
@@ -420,7 +451,7 @@ window.AceitesXLSX = (function () {
       const cFecha=col('fecha','date'); const cProd=col('producto','tipo de aceite','aceite','tipo'); const cIni=col('lectura inicial','inicial','inicio'); const cFin=col('lectura final','final','fin');
       const cLit=col('litros cuenta','litros despach','litros boba','litros'); const cNotas=col('notas','observaciones');
       if(!cFecha || !cIni || !cFin) continue;
-      bobaSheet = s.name;
+      bobaSheets.push(s.name);
       s.rows.forEach(row=>{
         if(row.num <= hh.row) return;
         const fecha = asDate(getCell(row,cFecha)); if(!fecha) return;
@@ -430,14 +461,21 @@ window.AceitesXLSX = (function () {
         const litros = num(getCell(row,cLit));
         meters.push({ fecha, producto: prod, inicial: ini, final: fin, litros, notas: text(getCell(row,cNotas)) });
       });
-      break;
     }
+
+    // dedupe salidas (por si el libro trae hojas combinadas y separadas a la vez)
+    const dMap=new Map();
+    dispatches.forEach(d=>{
+      const k=[d.fecha,d.equipo,d.tipoAceite,d.litros,d.horometro,d.folio,d.descripcion,d.compartimento,d.motivo].join('|');
+      if(!dMap.has(k)) dMap.set(k,d);
+    });
+    dispatches = Array.from(dMap.values());
 
     // dedupe meters by fecha+producto
     const mMap=new Map(); meters.forEach(m=>{ const k=m.fecha+'|'+(canonProducto(m.producto)||m.producto); if(!mMap.has(k)) mMap.set(k,m); });
     meters = Array.from(mMap.values()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)) || String(a.producto).localeCompare(String(b.producto)));
 
-    if(!mainSheet && !bobaSheet) throw new Error('No se encontró una hoja de aceites reconocible (se esperaban columnas como Fecha, Equipo, Litros).');
+    if(!mainSheets.length && !bobaSheets.length) throw new Error('No se encontró una hoja de aceites reconocible (se esperaban columnas como Fecha, Equipo, Litros).');
 
     const dates = dispatches.map(d=>d.fecha).concat(meters.map(m=>m.fecha)).filter(Boolean).sort();
     const litrosSalidas = dispatches.reduce((a,d)=>a+(Number(d.litros)||0),0);
@@ -445,7 +483,7 @@ window.AceitesXLSX = (function () {
     return {
       dispatches, meters,
       meta: {
-        mainSheet, bobaSheet, sheets: sheets.map(s=>s.name),
+        mainSheet: mainSheets[0]||'', bobaSheet: bobaSheets[0]||'', mainSheets, bobaSheets, sheets: sheets.map(s=>s.name),
         rows: dispatches.length, meterRows: meters.length,
         desde: dates[0]||'', hasta: dates[dates.length-1]||'',
         litrosSalidas: Math.round(litrosSalidas*1000)/1000,
