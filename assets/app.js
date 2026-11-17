@@ -782,32 +782,89 @@
   }
 
   function aceitesCountersBitacoraHtml(desde, hasta) {
-    const out = [];
     if (!desde || !hasta || desde > hasta) return '';
-    let d = desde, n = 0;
-    while (d <= hasta && n < 400) {
-      ACEITE_PRODUCTOS.forEach(prod => {
-        const rec = Store.aceiteBobaFor ? Store.aceiteBobaFor(d, prod) : (Store.getAceiteMeters().find(r=>r.fecha===d && (Store.canonProductoAceite?Store.canonProductoAceite(r.producto):r.producto)===prod));
-        const salidasArr = Store.getAceiteDispatches().filter(r=>r.fecha===d && (Store.canonProductoAceite?Store.canonProductoAceite(r.tipoAceite):r.tipoAceite)===prod);
-        const salidas = sum(salidasArr,(r)=>r.litros);
-        const contador = rec && rec.litros != null ? rec.litros : null;
-        const tiene = rec || salidasArr.length;
-        if (!tiene) return;
-        const diff = (contador==null) ? null : contador - salidas;
-        const estado = contador==null ? badge('Sin contador','warn') : (Math.abs(diff||0) <= 1 ? badge('Cuadra','ok') : badge('Diferencia','bad'));
-        out.push('<tr><td class="mono">'+esc(fmtShort(d))+'</td><td>'+esc(prod)+'</td><td class="num">'+(rec&&rec.inicial!=null?nf(rec.inicial,2):'—')+'</td><td class="num">'+(rec&&rec.final!=null?nf(rec.final,2):'—')+'</td><td class="num">'+(contador==null?'—':nf(contador,2))+'</td><td class="num">'+nf(salidas||0,2)+'</td><td class="num"><strong>'+ (diff==null?'—':((diff>0?'+':'')+nf(diff,2))) +'</strong></td><td>'+estado+'</td></tr>');
-      });
-      d = addDays(d, 1); n++;
-    }
-    const meters = Store.getAceiteMeters().filter(r=>r.fecha>=desde && r.fecha<=hasta && r.litros!=null);
-    const dispatches = Store.getAceiteDispatches().filter(r=>r.fecha>=desde && r.fecha<=hasta);
-    const totalContador = sum(meters,(m)=>m.litros);
-    const totalSalidas = sum(dispatches,(r)=>r.litros);
+    const canon = (v) => Store.canonProductoAceite ? Store.canonProductoAceite(v) : v;
+    const allMeters = Store.getAceiteMeters().filter(r => r.fecha >= desde && r.fecha <= hasta && r.litros != null);
+    const allDispatches = Store.getAceiteDispatches().filter(r => r.fecha >= desde && r.fecha <= hasta);
+    const periodo = esc(fmtDate(desde)) + ' a ' + esc(fmtDate(hasta));
+
+    const products = ACEITE_PRODUCTOS.map((prod) => {
+      const meters = allMeters.filter(r => canon(r.producto) === prod);
+      const dispatches = allDispatches.filter(r => canon(r.tipoAceite) === prod);
+      const recByDate = new Map();
+      meters.forEach(r => { if (r.litros != null) recByDate.set(r.fecha, r); });
+      const salByDate = new Map();
+      dispatches.forEach(r => { const arr = salByDate.get(r.fecha) || []; arr.push(r); salByDate.set(r.fecha, arr); });
+
+      let rows = '', d = desde, n = 0;
+      while (d <= hasta && n < 400) {
+        const rec = recByDate.get(d) || null;
+        const salidasArr = salByDate.get(d) || [];
+        if (rec || salidasArr.length) {
+          const salidas = sum(salidasArr, r => r.litros);
+          const contador = rec && rec.litros != null ? Number(rec.litros) : null;
+          const diff = contador == null ? null : contador - salidas;
+          const estado = contador == null ? badge('Sin contador', 'warn') : (Math.abs(diff) <= 1 ? badge('Cuadra', 'ok') : badge('Diferencia', 'bad'));
+          rows += '<tr><td class="mono">' + esc(fmtShort(d)) + '</td>' +
+            '<td class="num">' + (rec && rec.inicial != null ? nf(rec.inicial, 2) : '—') + '</td>' +
+            '<td class="num">' + (rec && rec.final != null ? nf(rec.final, 2) : '—') + '</td>' +
+            '<td class="num">' + (contador == null ? '—' : nf(contador, 2)) + '</td>' +
+            '<td class="num">' + nf(salidas, 2) + '</td>' +
+            '<td class="num"><strong>' + (diff == null ? '—' : ((diff > 0 ? '+' : '') + nf(diff, 2))) + '</strong></td>' +
+            '<td>' + estado + '</td></tr>';
+        }
+        d = addDays(d, 1); n++;
+      }
+      const totalContador = sum(meters, r => r.litros);
+      const totalSalidas = sum(dispatches, r => r.litros);
+      const totalDiff = totalContador - totalSalidas;
+      const detalle = dispatches.slice().sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.equipo || '').localeCompare(b.equipo || ''))
+        .map(r => '<tr><td class="mono">' + esc(fmtShort(r.fecha)) + '</td><td><strong>' + esc(r.equipo) + '</strong></td><td>' + esc(r.compartimento || '—') + '</td><td>' + esc(r.motivo || '—') + '</td><td class="num">' + nf(r.litros, 2) + '</td><td class="mono">' + esc(r.folio || '—') + '</td></tr>').join('');
+      return { prod, meters, dispatches, rows, totalContador, totalSalidas, totalDiff, detalle };
+    });
+
+    const totalContador = sum(products, p => p.totalContador);
+    const totalSalidas = sum(products, p => p.totalSalidas);
     const totalDiff = totalContador - totalSalidas;
-    return '<section class="card"><div class="card-head"><div><h2>Bitácora de contadores (aceites) y cotejo con salidas</h2><p>Registros de cuenta litros vs salidas por día y producto · ' + esc(fmtDate(desde)) + ' a ' + esc(fmtDate(hasta)) + '</p></div></div>' +
-      '<div class="kpis">' + kpi('Total contador', nf(totalContador,2)+' L', meters.length+' lecturas','') + kpi('Total salidas', nf(totalSalidas,2)+' L', dispatches.length+' salidas','') + kpi('Diferencia global', (totalDiff>0?'+':'')+nf(totalDiff,2)+' L', 'contador - salidas', Math.abs(totalDiff)>1?'bad':'good') + '</div>' +
-      (out.length ? '<div style="margin-top:14px"><p class="scroll-hint" hidden>Desliza para ver más columnas — </p><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Producto</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th><th>Estado</th></tr></thead><tbody>' + out.join('') + '</tbody></table></div></div>' : '<div class="empty"><h3>Sin registros de contadores ni salidas de aceites</h3><p>Captura lecturas o salidas en el módulo Aceites en este periodo.</p></div>') +
+    const hayDatos = allMeters.length > 0 || allDispatches.length > 0;
+
+    let html = '<section class="card"><div class="card-head"><div><h2>Resumen general de aceites</h2><p>Comparativa entre productos · ' + periodo + '</p></div></div>' +
+      '<div class="kpis">' +
+        kpi('Total contador', nf(totalContador, 2) + ' L', allMeters.length + ' lecturas', '') +
+        kpi('Total salidas', nf(totalSalidas, 2) + ' L', allDispatches.length + ' salidas', '') +
+        kpi('Diferencia global', (totalDiff > 0 ? '+' : '') + nf(totalDiff, 2) + ' L', 'contador - salidas', Math.abs(totalDiff) > 1 ? 'bad' : 'good') +
+      '</div>' +
+      '<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Producto</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th><th class="num">Lecturas</th><th>Estado</th></tr></thead><tbody>' +
+      products.map(p => {
+        const estado = p.meters.length ? (Math.abs(p.totalDiff) <= 1 ? badge('Cuadra', 'ok') : badge('Diferencia', 'bad')) : badge('Sin lecturas', 'warn');
+        return '<tr><td><strong>' + esc(p.prod) + '</strong></td><td class="num">' + nf(p.totalContador, 2) + '</td><td class="num">' + nf(p.totalSalidas, 2) + '</td><td class="num"><strong>' + ((p.totalDiff > 0 ? '+' : '') + nf(p.totalDiff, 2)) + '</strong></td><td class="num">' + p.meters.length + '</td><td>' + estado + '</td></tr>';
+      }).join('') +
+      '</tbody><tfoot><tr><td><strong>TOTAL</strong></td><td class="num"><strong>' + nf(totalContador, 2) + '</strong></td><td class="num"><strong>' + nf(totalSalidas, 2) + '</strong></td><td class="num"><strong>' + ((totalDiff > 0 ? '+' : '') + nf(totalDiff, 2)) + '</strong></td><td class="num"><strong>' + allMeters.length + '</strong></td><td></td></tr></tfoot></table></div>' +
       '</section>';
+
+    if (!hayDatos) {
+      return html + '<section class="card"><div class="empty"><h3>Sin registros de contadores ni salidas de aceites</h3><p>Captura lecturas o salidas en el módulo Aceites en este periodo.</p></div></section>';
+    }
+
+    products.forEach((p) => {
+      const estado = p.meters.length ? (Math.abs(p.totalDiff) <= 1 ? badge('Cuadra', 'ok') : badge('Diferencia', 'bad')) : badge('Sin lecturas', 'warn');
+      html += '<section class="card"><div class="card-head"><div><h2>' + esc(p.prod) + ' · cotejo contador vs salidas</h2><p>' + periodo + '</p></div>' + estado + '</div>' +
+        '<div class="kpis">' +
+          kpi('Contador', nf(p.totalContador, 2) + ' L', p.meters.length + ' lecturas', '') +
+          kpi('Salidas', nf(p.totalSalidas, 2) + ' L', p.dispatches.length + ' salidas', '') +
+          kpi('Diferencia', (p.totalDiff > 0 ? '+' : '') + nf(p.totalDiff, 2) + ' L', 'contador - salidas', Math.abs(p.totalDiff) <= 1 ? 'good' : 'bad') +
+        '</div>' +
+        (p.rows
+          ? '<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Fecha</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th><th>Estado</th></tr></thead><tbody>' + p.rows + '</tbody>' +
+            '<tfoot><tr><td><strong>TOTAL</strong></td><td></td><td></td><td class="num"><strong>' + nf(p.totalContador, 2) + '</strong></td><td class="num"><strong>' + nf(p.totalSalidas, 2) + '</strong></td><td class="num"><strong>' + ((p.totalDiff > 0 ? '+' : '') + nf(p.totalDiff, 2)) + '</strong></td><td></td></tr></tfoot></table></div>'
+          : '<div class="empty" style="margin-top:12px"><h3>Sin cotejo en el periodo</h3><p>No hay lecturas ni salidas registradas para ' + esc(p.prod) + '.</p></div>') +
+        '<div class="divider"></div><h3 style="margin:10px 0 6px">Detalle de salidas · ' + esc(p.prod) + '</h3>' +
+        (p.detalle
+          ? '<div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Compartimento</th><th>Motivo</th><th class="num">Litros</th><th>Folio</th></tr></thead><tbody>' + p.detalle + '</tbody><tfoot><tr><td colspan="4"><strong>Total salidas</strong></td><td class="num"><strong>' + nf(p.totalSalidas, 2) + '</strong></td><td></td></tr></tfoot></table></div>'
+          : '<div class="empty"><h3>Sin salidas de ' + esc(p.prod) + '</h3><p>Captura despachos de este producto en el módulo Aceites.</p></div>') +
+        '</section>';
+    });
+    return html;
   }
 
 
