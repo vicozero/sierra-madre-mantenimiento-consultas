@@ -84,6 +84,10 @@
     toast._t = setTimeout(() => { el.className = 'toast'; }, kind === 'err' ? 5200 : 3200);
   }
   function badge(text, kind) { return '<span class="badge ' + (kind || '') + '">' + esc(text) + '</span>'; }
+  const ICO_EDIT = '<svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+  const ICO_DEL = '<svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>';
+  const ICO_TOGGLE_OFF = '<svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 5h6a7 7 0 0 1 0 14H9"/><path d="M9 12H3"/></svg>';
+  const ICO_TOGGLE_ON = '<svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 5h-6a7 7 0 0 0 0 14h6"/><path d="M15 12h6"/></svg>';
   function notice(html, kind) {
     return '<div class="notice ' + (kind || '') + '"><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><div>' + html + '</div></div>';
   }
@@ -253,12 +257,12 @@
   function updateStatus() {
     const st = Store.getState(); const chip = $('#statusChip'); const text = $('#statusText'); if (!chip) return;
     let cls = 'chip', label = 'Solo local', title = 'Los datos se guardan solo en este navegador';
-    if (st.syncing) { cls += ' warn'; label = 'Sincronizando⬦'; title = 'Conectando con GitHub'; }
+    if (st.syncing) { cls += ' warn'; label = 'Sincronizando…'; title = 'Conectando con GitHub'; }
     else if (st.demo) { cls += ' warn'; label = 'Datos de ejemplo'; title = 'Borra el ejemplo para empezar a capturar'; }
     else if (!Store.isRemoteReady()) { cls += ' warn'; label = 'Solo local'; title = 'Configura el repositorio y el token en Ajustes para guardar en GitHub'; }
     else if (st.pending.length) { cls += ' warn'; label = st.pending.length + ' pendiente' + (st.pending.length === 1 ? '' : 's'); title = 'Cambios sin enviar a GitHub'; }
     else if (st.lastError) { cls += ' err'; label = 'Error de sync'; title = st.lastError; }
-    else { cls += ' ok'; label = 'GitHub al día'; title = '—altima sincronización: ' + (st.lastSync ? fmtDateTime(st.lastSync) : '—'); }
+    else { cls += ' ok'; label = 'GitHub al día'; title = 'Última sincronización: ' + (st.lastSync ? fmtDateTime(st.lastSync) : '—'); }
     chip.className = cls; text.textContent = label; chip.title = title;
     const syncBtn = $('#btnSync'); if (syncBtn) syncBtn.disabled = st.syncing || !Store.isRemoteReady();
     const footLeft = $('#footLeft');
@@ -390,7 +394,7 @@
           '<div class="kpis">' +
             kpi('Boba hoy', litros(tHoy.tieneDato ? tHoy.totalBoba : null), 'Fuente: ' + tHoy.fuente, tHoy.tieneDato ? 'good' : '') +
             kpi('Cargas hoy', litros(tHoy.cargas.length ? tHoy.totalCargas : null), tHoy.cargas.length + ' cargas', '') +
-            kpi('Diferencia hoy', tHoy.tieneDato ? (tHoy.diff > 0 ? '+' : '') + litros(tHoy.diff) : '—', 'boba —— cargas', tHoy.tieneDato && Math.abs(tHoy.diff) > 1 ? 'bad' : 'good') +
+            kpi('Diferencia hoy', tHoy.tieneDato ? (tHoy.diff > 0 ? '+' : '') + litros(tHoy.diff) : '—', 'boba - cargas', tHoy.tieneDato && Math.abs(tHoy.diff) > 1 ? 'bad' : 'good') +
             kpi('Boba mes', litros(diasConBoba.length ? totalBobaMes : null), diasConBoba.length + ' días con lectura', '') +
             kpi('Cargas mes', litros(totalCargasMes || null), chargesMes.length + ' renglones', '') +
             kpi('Diferencia mes', diasConBoba.length ? (diffMes > 0 ? '+' : '') + litros(diffMes) : '—', nf(sinLectura) + ' días con cargas sin boba', sinLectura ? 'bad' : 'good') +
@@ -511,7 +515,7 @@
         '<div class="card-head"><div><h2>Cargas del día</h2><p>Consumo registrado por equipo y turno</p></div><button class="btn sm" type="button" data-act="new-carga">Registrar carga</button></div>' +
         (rows.length
           ? '<div class="tablewrap"><table><thead><tr><th>Equipo</th><th>Cat.</th><th>Turno</th><th class="num">Litros</th><th>Operador</th><th>Folio</th><th></th></tr></thead><tbody>' +
-            rows.map((c) => '<tr><td><strong>' + esc(c.equipo) + '</strong><div class="muted" style="font-size:11.5px">' + esc(c.departamento || '') + '</div></td><td>' + badge(c.categoria || '—', '') + '</td><td>' + esc(c.turno) + '</td><td class="num">' + nf(c.litros, 1) + '</td><td>' + esc(c.operador || '—') + '</td><td class="mono">' + esc(c.folio || '—') + '</td><td class="actions"><button class="btn icon" type="button" data-act="edit-carga" data-id="' + esc(c.id) + '" title="Editar">—S}</button><button class="btn icon del" type="button" data-act="del-carga" data-id="' + esc(c.id) + '" title="Eliminar">—x</button></td></tr>').join('') +
+            rows.map((c) => '<tr><td><strong>' + esc(c.equipo) + '</strong><div class="muted" style="font-size:11.5px">' + esc(c.departamento || '') + '</div></td><td>' + badge(c.categoria || '—', '') + '</td><td>' + esc(c.turno) + '</td><td class="num">' + nf(c.litros, 1) + '</td><td>' + esc(c.operador || '—') + '</td><td class="mono">' + esc(c.folio || '—') + '</td><td class="actions"><button class="btn icon" type="button" data-act="edit-carga" data-id="' + esc(c.id) + '" title="Editar">' + ICO_EDIT + '</button><button class="btn icon del" type="button" data-act="del-carga" data-id="' + esc(c.id) + '" title="Eliminar">' + ICO_DEL + '</button></td></tr>').join('') +
             '</tbody><tfoot><tr><td colspan="3"><strong>Total</strong></td><td class="num"><strong>' + nf(sum(rows, (c) => c.litros), 1) + '</strong></td><td colspan="3"></td></tr></tfoot></table></div>'
           : '<div class="empty"><h3>Sin cargas este día</h3><p>Registra los litros entregados a cada equipo o importa el concentrado.</p></div>') +
       '</section>';
@@ -528,7 +532,7 @@
       '<div class="stack">' +
         '<section class="card">' +
           '<div class="card-head"><div><h2>Registro del día</h2><p>Cuenta litros por turno o por día completo (cualquiera se toma en cuenta para el día)</p></div>' +
-            '<div class="row"><button class="btn ghost sm" type="button" data-act="prev-day" title="Día anterior">⬹</button><input type="date" id="diaInput" value="' + esc(fecha) + '" aria-label="Fecha"><button class="btn ghost sm" type="button" data-act="next-day" title="Día siguiente">⬺</button><button class="btn ghost sm" type="button" data-act="today">Hoy</button></div></div>' +
+            '<div class="row"><button class="btn ghost sm" type="button" data-act="prev-day" title="Día anterior">←</button><input type="date" id="diaInput" value="' + esc(fecha) + '" aria-label="Fecha"><button class="btn ghost sm" type="button" data-act="next-day" title="Día siguiente">→</button><button class="btn ghost sm" type="button" data-act="today">Hoy</button></div></div>' +
           '<p class="muted" style="margin:-4px 0 12px">' + esc(fmtDate(fecha, true)) + ' · ' + esc(weekday(fecha)) + ' · ' + badge('Fuente boba del día: ' + esc(t.fuente), t.tieneDato ? 'ok' : 'warn') + '</p>' +
           (Store.isDemo() ? notice('Estás viendo datos de ejemplo. Ve a <a href="#/ajustes">Ajustes</a> para borrarlos y capturar los reales.', 'warn') : '') +
           notice('Puedes capturar <strong>por turnos</strong> o <strong>por día</strong>. Lo que registres se considera en el total del día y se especifica en Cuenta litros.', '') +
@@ -539,7 +543,7 @@
           '<div class="kpis">' +
             kpi('Litros boba (día)', litros(t.tieneDato ? t.totalBoba : null), 'Fuente: ' + t.fuente, '') +
             kpi('Litros cargados', litros(t.cargas.length ? t.totalCargas : null), t.cargas.length + ' carga' + (t.cargas.length === 1 ? '' : 's'), '') +
-            kpi('Diferencia', t.tieneDato ? (t.diff > 0 ? '+' : '') + litros(t.diff) : '—', 'boba —— cargas', t.tieneDato && Math.abs(t.diff) > Math.max(1, Math.abs(t.totalBoba) * 0.01) ? 'bad' : 'good') +
+            kpi('Diferencia', t.tieneDato ? (t.diff > 0 ? '+' : '') + litros(t.diff) : '—', 'boba - cargas', t.tieneDato && Math.abs(t.diff) > Math.max(1, Math.abs(t.totalBoba) * 0.01) ? 'bad' : 'good') +
             kpi('Registros boba', nf(t.lecturas), 'turnos/día con lectura', t.tieneDato ? 'good' : '') +
           '</div></section>' +
         dayChargesCard(fecha, t.cargas) +
@@ -584,7 +588,7 @@
           '<div class="kpis">' +
             kpi('Litros boba (mes)', litros(diasConDato ? totalBoba : null), diasConDato + ' días con lectura · ' + lecturas + ' registros', '') +
             kpi('Litros cargados', litros(totalCargasMes || null), cargasMes.length + ' cargas', '') +
-            kpi('Diferencia', diasConDato ? (totalBoba - totalCargasMes > 0 ? '+' : '') + litros(totalBoba - totalCargasMes) : '—', 'boba —— cargas', diasConDato && Math.abs(totalBoba - totalCargasMes) > Math.max(1, totalBoba * 0.01) ? 'bad' : 'good') +
+            kpi('Diferencia', diasConDato ? (totalBoba - totalCargasMes > 0 ? '+' : '') + litros(totalBoba - totalCargasMes) : '—', 'boba - cargas', diasConDato && Math.abs(totalBoba - totalCargasMes) > Math.max(1, totalBoba * 0.01) ? 'bad' : 'good') +
             kpi('Días sin lectura', nf(diasSinLectura), 'con cargas pero sin boba', diasSinLectura ? 'bad' : 'good') +
           '</div>' +
         '</section>' +
@@ -606,7 +610,7 @@
           '<div class="kpis" style="margin-top:14px">' +
             kpi('Boba considerada (día)', litros(t.tieneDato ? t.totalBoba : null), 'Fuente: ' + t.fuente, '') +
             kpi('Cargas del día', litros(t.cargas.length ? t.totalCargas : null), t.cargas.length + ' cargas', '') +
-            kpi('Diferencia', t.tieneDato ? (t.diff > 0 ? '+' : '') + litros(t.diff) : '—', 'boba —— cargas', t.tieneDato && Math.abs(t.diff) > Math.max(1, Math.abs(t.totalBoba) * 0.01) ? 'bad' : 'good') +
+            kpi('Diferencia', t.tieneDato ? (t.diff > 0 ? '+' : '') + litros(t.diff) : '—', 'boba - cargas', t.tieneDato && Math.abs(t.diff) > Math.max(1, Math.abs(t.totalBoba) * 0.01) ? 'bad' : 'good') +
           '</div>' +
         '</section>' +
 
@@ -620,7 +624,7 @@
                 if (info.day) recs.push(Object.assign({ _tipo: 'Día' }, info.day));
                 info.shifts.forEach((sh) => recs.push(Object.assign({ _tipo: 'Turno ' + sh.turno }, sh)));
                 if (!recs.length) {
-                  return '<tr><td><strong>' + esc(fmtShort(r.fecha)) + '</strong></td><td>' + badge('Sin lectura', 'warn') + '</td><td class="muted">—</td><td class="num mono">—</td><td class="num mono">—</td><td class="num">—</td><td class="num">' + nf(r.cargaTotal, 1) + '</td><td class="num">—</td><td>' + badge(r.n ? 'Sin boba' : 'Sin datos', r.n ? 'warn' : '') + '</td><td class="actions"><button class="btn icon" type="button" data-act="goto-boba-fecha" data-fecha="' + esc(r.fecha) + '" title="Capturar">—S}</button></td></tr>';
+                  return '<tr><td><strong>' + esc(fmtShort(r.fecha)) + '</strong></td><td>' + badge('Sin lectura', 'warn') + '</td><td class="muted">—</td><td class="num mono">—</td><td class="num mono">—</td><td class="num">—</td><td class="num">' + nf(r.cargaTotal, 1) + '</td><td class="num">—</td><td>' + badge(r.n ? 'Sin boba' : 'Sin datos', r.n ? 'warn' : '') + '</td><td class="actions"><button class="btn icon" type="button" data-act="goto-boba-fecha" data-fecha="' + esc(r.fecha) + '" title="Capturar">' + ICO_EDIT + '</button></td></tr>';
                 }
                 return recs.map((b, idx) => {
                   const showDay = idx === 0;
@@ -636,7 +640,7 @@
                     '<td class="num">' + nf(cargaComp, 1) + '</td>' +
                     '<td class="num ' + (d == null ? '' : Math.abs(d) <= 1 ? 'pos' : 'neg') + '">' + (d == null ? '—' : (d > 0 ? '+' : '') + nf(d, 1)) + '</td>' +
                     (showDay ? '<td rowspan="' + recs.length + '">' + badge(info.fuente, info.tieneDato ? 'ok' : 'warn') + '<div class="muted" style="font-size:11px;margin-top:2px">' + (info.tieneDato ? 'Considerado: ' + nf(info.total, 1) + ' L' : '—') + '</div></td>' : '') +
-                    '<td class="actions"><button class="btn icon" type="button" data-act="goto-boba-fecha" data-fecha="' + esc(r.fecha) + '" title="Editar">—S}</button><button class="btn icon del" type="button" data-act="del-boba" data-id="' + esc(b.id) + '" title="Eliminar">—x</button></td>' +
+                    '<td class="actions"><button class="btn icon" type="button" data-act="goto-boba-fecha" data-fecha="' + esc(r.fecha) + '" title="Editar">' + ICO_EDIT + '</button><button class="btn icon del" type="button" data-act="del-boba" data-id="' + esc(b.id) + '" title="Eliminar">' + ICO_DEL + '</button></td>' +
                   '</tr>';
                 }).join('');
               }).join('') +
@@ -674,7 +678,7 @@
     const d = ensureDraft(); const editando = !!ui.editCargaId;
     return '' +
       '<div class="stack">' +
-        '<section class="card"><div class="card-head"><div><h2>' + (editando ? 'Editar carga' : 'Nueva carga') + '</h2><p>Litros entregados a un equipo en un turno</p></div>' + (editando ? '<button class="btn ghost sm" type="button" data-act="cancel-edit">Cancelar edici—n</button>' : '') + '</div>' +
+        '<section class="card"><div class="card-head"><div><h2>' + (editando ? 'Editar carga' : 'Nueva carga') + '</h2><p>Litros entregados a un equipo en un turno</p></div>' + (editando ? '<button class="btn ghost sm" type="button" data-act="cancel-edit">Cancelar edición</button>' : '') + '</div>' +
           (!cfg.equipos.length ? notice('El catálogo de equipos está vacío. Puedes capturar el nombre a mano o cargarlo en <a href="#/ajustes">Ajustes</a>.', 'warn') : '') +
           '<form id="cargaForm" novalidate><div class="grid cols-4">' +
             field('Fecha','<input type="date" name="fecha" required value="' + esc(d.fecha) + '">') +
@@ -699,11 +703,11 @@
             field('Hasta','<input type="date" name="hasta" value="' + esc(f.hasta) + '">') +
             field('Categoría', selectCategorias(f.categoria,true)) +
             field('Turno', selectTurnos(f.turno,true)) +
-            field('Buscar','<input type="search" name="q" value="' + esc(f.q) + '" placeholder="Equipo, operador, folio⬦">') +
+            field('Buscar','<input type="search" name="q" value="' + esc(f.q) + '" placeholder="Equipo, operador, folio…">') +
           '</div>' +
           (all.length
             ? '<p class="scroll-hint" hidden>Desliza para ver más columnas — </p><div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Fecha</th><th>Turno</th><th>Equipo</th><th>Cat.</th><th class="num">Horóm.</th><th class="num">Litros</th><th>Departamento</th><th>Operador</th><th>Folio</th><th></th></tr></thead><tbody>' +
-              all.slice(0,400).map((c)=>'<tr><td class="mono">' + esc(fmtShort(c.fecha)) + '</td><td>' + esc(c.turno) + '</td><td><strong>' + esc(c.equipo) + '</strong></td><td>' + badge(c.categoria||'—','') + '</td><td class="num mono">' + esc(c.horometro==null?'—':c.horometro) + '</td><td class="num"><strong>' + nf(c.litros,1) + '</strong></td><td>' + esc(c.departamento||'—') + '</td><td>' + esc(c.operador||'—') + '</td><td class="mono">' + esc(c.folio||'—') + '</td><td class="actions"><button class="btn icon" type="button" data-act="edit-carga" data-id="' + esc(c.id) + '" title="Editar">—S}</button><button class="btn icon del" type="button" data-act="del-carga" data-id="' + esc(c.id) + '" title="Eliminar">—x</button></td></tr>').join('') +
+              all.slice(0,400).map((c)=>'<tr><td class="mono">' + esc(fmtShort(c.fecha)) + '</td><td>' + esc(c.turno) + '</td><td><strong>' + esc(c.equipo) + '</strong></td><td>' + badge(c.categoria||'—','') + '</td><td class="num mono">' + esc(c.horometro==null?'—':c.horometro) + '</td><td class="num"><strong>' + nf(c.litros,1) + '</strong></td><td>' + esc(c.departamento||'—') + '</td><td>' + esc(c.operador||'—') + '</td><td class="mono">' + esc(c.folio||'—') + '</td><td class="actions"><button class="btn icon" type="button" data-act="edit-carga" data-id="' + esc(c.id) + '" title="Editar">' + ICO_EDIT + '</button><button class="btn icon del" type="button" data-act="del-carga" data-id="' + esc(c.id) + '" title="Eliminar">' + ICO_DEL + '</button></td></tr>').join('') +
               '</tbody><tfoot><tr><td colspan="5"><strong>Total filtrado</strong></td><td class="num"><strong>' + nf(sum(all,(c)=>c.litros),1) + '</strong></td><td colspan="4"></td></tr></tfoot></table></div>' +
               (all.length>400 ? '<p class="muted" style="margin-top:8px">Se muestran los primeros 400 renglones. Ajusta el rango o usa la búsqueda.</p>' : '')
             : '<div class="empty"><h3>Sin cargas en el rango</h3><p>Agrega una carga arriba o cambia los filtros.</p></div>') +
@@ -746,7 +750,7 @@
           '<div class="dropzone" id="dropZone"><input type="file" id="fileImport" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><p><strong>Elige un archivo</strong> o arrástralo aquí</p><button class="btn ghost" type="button" data-act="pick-file">Elegir archivo .xlsx</button></div>' +
           (ui.importPreview ? importPreviewHtml() : '') + '</section>' +
         '<section class="card"><div class="card-head"><div><h2>REPORTE DIESEL</h2><p>' + esc(cfg.tituloBitacora||'Bitácora consumo diésel') + ' · ' + esc(fmtDate(desde)) + ' a ' + esc(fmtDate(hasta)) + '</p></div><div class="row">' + badge(charges.length+' renglones','') + badge(litros(totalLitros),'ok') + '</div></div>' +
-          '<div class="kpis">' + kpi('Cargas', nf(charges.length), 'renglones del periodo','') + kpi('Total turnos', litros(totalLitros), 'litros cargados','') + kpi('Litros boba', litros(totalBoba||null), 'considerado por día','') + kpi('Diferencia', (totalBoba-totalLitros>0?'+':'')+litros(totalBoba-totalLitros), 'boba —— cargas', Math.abs(totalBoba-totalLitros)>Math.max(1,totalBoba*0.01)?'bad':'good') + '</div>' +
+          '<div class="kpis">' + kpi('Cargas', nf(charges.length), 'renglones del periodo','') + kpi('Total turnos', litros(totalLitros), 'litros cargados','') + kpi('Litros boba', litros(totalBoba||null), 'considerado por día','') + kpi('Diferencia', (totalBoba-totalLitros>0?'+':'')+litros(totalBoba-totalLitros), 'boba - cargas', Math.abs(totalBoba-totalLitros)>Math.max(1,totalBoba*0.01)?'bad':'good') + '</div>' +
           '<div style="margin-top:14px">' + (charges.length
             ? '<p class="scroll-hint" hidden>Desliza para ver más columnas — </p><div class="tablewrap"><table><thead><tr><th>Categoria</th><th>Equipo</th><th class="num">Horometro</th><th>Fecha</th><th class="num">Turno 1</th><th class="num">Turno 2</th><th class="num">Turno 3</th><th class="num">Total Turnos</th><th>Departamento</th><th>Operador</th><th>Responsable</th><th>Folio</th><th>Ubicacion T.</th></tr></thead><tbody>' +
               charges.map((c)=>{ const t1=c.turno==='1'?c.litros:0,t2=c.turno==='2'?c.litros:0,t3=c.turno==='3'?c.litros:0; return '<tr><td>'+esc(c.categoria||'')+'</td><td><strong>'+esc(c.equipo||'')+'</strong></td><td class="num mono">'+esc(c.horometro==null?'':c.horometro)+'</td><td class="mono">'+esc(fmtShort(c.fecha))+'</td><td class="num">'+(t1?fmtNum(t1):'')+'</td><td class="num">'+(t2?fmtNum(t2):'')+'</td><td class="num">'+(t3?fmtNum(t3):'')+'</td><td class="num"><strong>'+fmtNum(c.litros)+'</strong></td><td>'+esc(c.departamento||'')+'</td><td>'+esc(c.operador||'')+'</td><td>'+esc(c.responsable||'')+'</td><td class="mono">'+esc(c.folio||'')+'</td><td>'+esc(c.ubicacion||'')+'</td></tr>'; }).join('') +
@@ -771,7 +775,7 @@
     const totalSalidas = sum(days.filter(d=>d.cargas!=null),(d)=>d.cargas);
     const totalDiff = totalContador - totalSalidas;
     return '<section class="card"><div class="card-head"><div><h2>Bitácora de contadores (diésel) y cotejo con salidas</h2><p>Registros de cuenta litros vs cargas/salidas por día · ' + esc(fmtDate(desde)) + ' a ' + esc(fmtDate(hasta)) + '</p></div></div>' +
-      '<div class="kpis">' + kpi('Total contador', litros(totalContador||null), 'litros por cuenta litros','') + kpi('Total salidas/cargas', litros(totalSalidas||null), 'litros cargados','') + kpi('Diferencia global', (totalDiff>0?'+':'')+nf(totalDiff,2)+' L', 'contador —— salidas', Math.abs(totalDiff)>1?'bad':'good') + kpi('Días con lectura', days.filter(d=>d.boba!=null).length, 'en el periodo','') + '</div>' +
+      '<div class="kpis">' + kpi('Total contador', litros(totalContador||null), 'litros por cuenta litros','') + kpi('Total salidas/cargas', litros(totalSalidas||null), 'litros cargados','') + kpi('Diferencia global', (totalDiff>0?'+':'')+nf(totalDiff,2)+' L', 'contador - salidas', Math.abs(totalDiff)>1?'bad':'good') + kpi('Días con lectura', days.filter(d=>d.boba!=null).length, 'en el periodo','') + '</div>' +
       '<div style="margin-top:14px"><p class="scroll-hint" hidden>Desliza para ver más columnas — </p><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Lecturas contador (inicial —  final = litros)</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th><th>Estado</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="6">Sin datos</td></tr>') +
       '</tbody><tfoot><tr><td><strong>TOTAL</strong></td><td></td><td class="num"><strong>'+nf(totalContador,2)+'</strong></td><td class="num"><strong>'+nf(totalSalidas,2)+'</strong></td><td class="num"><strong>'+((totalDiff>0?'+':'')+nf(totalDiff,2))+'</strong></td><td></td></tr></tfoot></table></div></div></section>';
@@ -801,7 +805,7 @@
     const totalSalidas = sum(dispatches,(r)=>r.litros);
     const totalDiff = totalContador - totalSalidas;
     return '<section class="card"><div class="card-head"><div><h2>Bitácora de contadores (aceites) y cotejo con salidas</h2><p>Registros de cuenta litros vs salidas por día y producto · ' + esc(fmtDate(desde)) + ' a ' + esc(fmtDate(hasta)) + '</p></div></div>' +
-      '<div class="kpis">' + kpi('Total contador', nf(totalContador,2)+' L', meters.length+' lecturas','') + kpi('Total salidas', nf(totalSalidas,2)+' L', dispatches.length+' salidas','') + kpi('Diferencia global', (totalDiff>0?'+':'')+nf(totalDiff,2)+' L', 'contador —— salidas', Math.abs(totalDiff)>1?'bad':'good') + '</div>' +
+      '<div class="kpis">' + kpi('Total contador', nf(totalContador,2)+' L', meters.length+' lecturas','') + kpi('Total salidas', nf(totalSalidas,2)+' L', dispatches.length+' salidas','') + kpi('Diferencia global', (totalDiff>0?'+':'')+nf(totalDiff,2)+' L', 'contador - salidas', Math.abs(totalDiff)>1?'bad':'good') + '</div>' +
       (out.length ? '<div style="margin-top:14px"><p class="scroll-hint" hidden>Desliza para ver más columnas — </p><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Producto</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th><th>Estado</th></tr></thead><tbody>' + out.join('') + '</tbody></table></div></div>' : '<div class="empty"><h3>Sin registros de contadores ni salidas de aceites</h3><p>Captura lecturas o salidas en el módulo Aceites en este periodo.</p></div>') +
       '</section>';
   }
@@ -893,7 +897,7 @@
         '<section class="card"><div class="card-head"><div><h2>Resumen del periodo</h2><p>'+esc(fmtDate(desde))+' a '+esc(fmtDate(hasta))+'</p></div></div><div class="kpis">' +
           kpi('Litros boba', litros(lecturas?totalBoba:null), lecturas+' días con lectura (día o turnos)','') +
           kpi('Litros cargados', litros(totalCargas), charges.length+' cargas','') +
-          kpi('Diferencia', (lecturas?(totalBoba-totalCargas>0?'+':'')+litros(totalBoba-totalCargas):'—'), 'boba —— cargas', lecturas && Math.abs(totalBoba-totalCargas)>Math.max(1,totalBoba*0.01)?'bad':'good') +
+          kpi('Diferencia', (lecturas?(totalBoba-totalCargas>0?'+':'')+litros(totalBoba-totalCargas):'—'), 'boba - cargas', lecturas && Math.abs(totalBoba-totalCargas)>Math.max(1,totalBoba*0.01)?'bad':'good') +
           kpi('Cobertura', pctCobertura+'%', dias+' de '+daily.length+' días con datos', pctCobertura>=80?'good':'') +
         '</div></section>' +
         '<section class="card"><div class="card-head"><div><h2>Consumo diario</h2><p>Barras: litros cargados · Línea: litros boba considerados por día</p></div></div><div id="chart"></div></section>' +
@@ -929,7 +933,7 @@
     return '' +
       '<div class="stack">' +
         '<section class="card"><div class="card-head"><div><h2>Módulo de usuarios y accesos</h2><p>Crea y administra accesos (módulo inicial, local en este equipo).</p></div>' + badge(users.length+' acceso'+(users.length===1?'':'s'),'') + '</div>' + notice('<strong>Módulo en desarrollo:</strong> registra y administra accesos localmente. La integración de inicio de sesión y sincronización centralizada se puede ampliar en una siguiente etapa.', 'warn') + '</section>' +
-        '<section class="card"><div class="card-head"><div><h2>' + (editando?'Editar acceso':'Crear acceso') + '</h2><p>Nombre, usuario, rol y clave</p></div>' + (editando?'<button class="btn ghost sm" type="button" data-act="cancel-user-edit">Cancelar edici—n</button>':'') + '</div>' +
+        '<section class="card"><div class="card-head"><div><h2>' + (editando?'Editar acceso':'Crear acceso') + '</h2><p>Nombre, usuario, rol y clave</p></div>' + (editando?'<button class="btn ghost sm" type="button" data-act="cancel-user-edit">Cancelar edición</button>':'') + '</div>' +
           '<form id="userForm" novalidate><div class="grid cols-4">' +
             field('Nombre completo','<input name="nombre" required value="'+esc(d.nombre)+'" placeholder="Ej. Juan Pérez">') +
             field('Usuario','<input name="usuario" required value="'+esc(d.usuario)+'" placeholder="ej. jperez" autocomplete="off">') +
@@ -941,7 +945,7 @@
           '</div><div class="row end" style="margin-top:14px"><button class="btn '+(editando?'accent':'')+'" type="submit">'+(editando?'Guardar cambios':'Crear acceso')+'</button></div></form></section>' +
         '<section class="card"><div class="card-head"><div><h2>Accesos registrados</h2><p>Administración de usuarios</p></div></div>' +
           (users.length ? '<div class="tablewrap"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th>Actualizado</th><th></th></tr></thead><tbody>' +
-            users.map((u)=>'<tr><td><strong>'+esc(u.nombre)+'</strong>'+(u.notas?'<div class="muted" style="font-size:11.5px">'+esc(u.notas)+'</div>':'')+'</td><td class="mono">'+esc(u.usuario)+'</td><td>'+esc((roles.find((r)=>r.id===u.rol)||{}).nombre||u.rol)+'</td><td>'+badge(u.activo!==false?'Activo':'Inactivo', u.activo!==false?'ok':'warn')+'</td><td class="mono">'+esc(u.actualizado?fmtDateTime(u.actualizado):'')+'</td><td class="actions"><button class="btn icon" type="button" data-act="toggle-user" data-id="'+esc(u.id)+'" title="'+(u.activo!==false?'Desactivar':'Activar')+'">'+(u.activo!==false?'⏸':'——')+'</button><button class="btn icon" type="button" data-act="edit-user" data-id="'+esc(u.id)+'" title="Editar">—S}</button><button class="btn icon del" type="button" data-act="del-user" data-id="'+esc(u.id)+'" title="Eliminar">—x</button></td></tr>').join('') +
+            users.map((u)=>'<tr><td><strong>'+esc(u.nombre)+'</strong>'+(u.notas?'<div class="muted" style="font-size:11.5px">'+esc(u.notas)+'</div>':'')+'</td><td class="mono">'+esc(u.usuario)+'</td><td>'+esc((roles.find((r)=>r.id===u.rol)||{}).nombre||u.rol)+'</td><td>'+badge(u.activo!==false?'Activo':'Inactivo', u.activo!==false?'ok':'warn')+'</td><td class="mono">'+esc(u.actualizado?fmtDateTime(u.actualizado):'')+'</td><td class="actions"><button class="btn icon" type="button" data-act="toggle-user" data-id="'+esc(u.id)+'" title="'+(u.activo!==false?'Desactivar':'Activar')+'">'+(u.activo!==false?ICO_TOGGLE_OFF:ICO_TOGGLE_ON)+'</button><button class="btn icon" type="button" data-act="edit-user" data-id="'+esc(u.id)+'" title="Editar">' + ICO_EDIT + '</button><button class="btn icon del" type="button" data-act="del-user" data-id="'+esc(u.id)+'" title="Eliminar">' + ICO_DEL + '</button></td></tr>').join('') +
             '</tbody></table></div>' : '<div class="empty"><h3>Sin accesos creados</h3><p>Crea el primer usuario para comenzar.</p></div>') +
         '</section></div>';
   }
@@ -965,10 +969,10 @@
 
         '<section class="card"><div class="card-head"><div><h2>GitHub</h2><p>Los datos se guardan como JSON mensual en el repositorio</p></div>' + badge(st.source==='github'?'Conectado':st.source==='github-offline'?'Sin conexión':'Solo local', st.source==='github'?'ok':st.source==='github-offline'?'err':'warn') + '</div>' +
           '<form id="remoteForm" novalidate><div class="grid cols-4">' + field('Usuario u organización','<input name="owner" value="'+esc(remote.owner)+'" placeholder="usuario" autocomplete="off">') + field('Repositorio','<input name="repo" value="'+esc(remote.repo)+'" placeholder="datos-diesel" autocomplete="off">') + field('Rama','<input name="branch" value="'+esc(remote.branch)+'">') + field('Carpeta','<input name="dir" value="'+esc(remote.dir)+'">') + '</div>' +
-          '<div class="grid cols-2" style="margin-top:12px">' + field('Token de GitHub','<input name="token" type="password" autocomplete="off" placeholder="'+(tokenSaved?'⬢⬢⬢⬢⬢⬢⬢⬢ (guardado)':'ghp_⬦ o github_pat_⬦')+'"><span class="hint">Fine-grained token con permiso <strong>Contents: Read and write</strong>.</span>') +
+          '<div class="grid cols-2" style="margin-top:12px">' + field('Token de GitHub','<input name="token" type="password" autocomplete="off" placeholder="'+(tokenSaved?'•••••••• (guardado)':'ghp_… o github_pat_…')+'"><span class="hint">Fine-grained token con permiso <strong>Contents: Read and write</strong>.</span>') +
             '<div class="field"><label>Opciones</label><label class="check"><input type="checkbox" name="remember" '+(Store.hasRememberedToken()?'checked':'')+'> Recordar el token en este equipo</label></div></div>' +
           '<div class="row end" style="margin-top:14px"><button class="btn ghost" type="button" data-act="test-conn">Probar conexión</button><button class="btn ghost" type="button" data-act="forget-token">Olvidar token</button><button class="btn" type="submit">Guardar conexión</button></div></form>' +
-          '<div class="divider"></div><dl class="kv"><dt>Modo</dt><dd>'+esc(st.source==='github'?'GitHub':st.source==='github-offline'?'GitHub (sin conexión)':'Solo este navegador')+'</dd><dt>Cambios pendientes</dt><dd>'+st.pending.length+'</dd><dt>—altima sincronización</dt><dd>'+esc(st.lastSync?fmtDateTime(st.lastSync):'—')+'</dd>'+(st.lastError?'<dt>—altimo error</dt><dd class="neg">'+esc(st.lastError)+'</dd>':'')+'</dl></section>' +
+          '<div class="divider"></div><dl class="kv"><dt>Modo</dt><dd>'+esc(st.source==='github'?'GitHub':st.source==='github-offline'?'GitHub (sin conexión)':'Solo este navegador')+'</dd><dt>Cambios pendientes</dt><dd>'+st.pending.length+'</dd><dt>Última sincronización</dt><dd>'+esc(st.lastSync?fmtDateTime(st.lastSync):'—')+'</dd>'+(st.lastError?'<dt>Último error</dt><dd class="neg">'+esc(st.lastError)+'</dd>':'')+'</dl></section>' +
 
         '<section class="card"><div class="card-head"><div><h2>Datos locales</h2><p>El ejemplo sirve para probar la app sin datos reales</p></div></div><div class="row"><button class="btn ghost" type="button" data-act="load-demo">'+(Store.isDemo()?'Regenerar ejemplo':'Cargar datos de ejemplo')+'</button>' + (Store.isDemo()?'<button class="btn ghost" type="button" data-act="clear-demo">Borrar ejemplo</button>':'') + '<button class="btn danger" type="button" data-act="clear-local">Borrar todos los datos locales</button></div><p class="muted" style="margin-top:10px;font-size:12.5px">Borrar los datos locales no elimina lo que ya está en GitHub; al sincronizar se vuelve a descargar.</p></section>' +
       '</div>';
@@ -1179,6 +1183,21 @@
       else { const d = boba - carga; difEl.textContent = (d > 0 ? '+' : '') + nf(d, 1) + ' L'; difEl.className = Math.abs(d) <= 1 ? 'pos' : 'neg'; }
     }
   }
+  function updateAceiteMeterCalc(form) {
+    const cfg = Store.getConfig();
+    const ini = parseDecimal(form.elements.inicial.value);
+    const fin = parseDecimal(form.elements.final.value);
+    const salidas = Number(form.dataset.salidas) || 0;
+    const key = String(form.dataset.producto || '').indexOf('Motor') !== -1 ? 'M' : 'H';
+    const tope = cfg.contadorMaxAceites || cfg.contadorMax;
+    let cuenta = null; if (ini != null && fin != null) cuenta = Store.bobaLitros(ini, fin, tope);
+    const litEl = $('#lit' + key), difEl = $('#dif' + key);
+    if (litEl) litEl.textContent = cuenta == null ? '—' : nf(cuenta, 2) + ' L';
+    if (difEl) {
+      if (cuenta == null) { difEl.textContent = '—'; difEl.className = ''; }
+      else { const d = cuenta - salidas; difEl.textContent = (d > 0 ? '+' : '') + nf(d, 1) + ' L'; difEl.className = Math.abs(d) <= 1 ? 'pos' : 'neg'; }
+    }
+  }
 
   /* ------------------------------ guardar ------------------------------ */
 
@@ -1214,6 +1233,68 @@
       toast(fin == null ? 'Lectura inicial del día guardada.' : 'Registro del día guardado.', 'ok');
       render();
     } catch (err) { toast(err.message || 'No se pudo guardar la lectura del día.', 'err'); }
+  }
+
+  function saveAceiteMeter(form) {
+    const cfg = Store.getConfig();
+    const producto = String(form.dataset.producto || '').trim();
+    const fecha = form.dataset.fecha || ui.aceites.fecha || todayISO();
+    const ini = parseDecimal(form.elements.inicial.value);
+    const fin = parseDecimal(form.elements.final.value);
+    const id = form.elements.id ? form.elements.id.value : '';
+    const notas = form.elements.notas ? form.elements.notas.value : '';
+    if (!producto) { toast('Producto no válido.', 'err'); return; }
+    if (ini == null && fin == null) { toast('Captura al menos la lectura inicial de ' + producto + '.', 'err'); return; }
+    if (ini != null && fin != null) {
+      const calc = Store.bobaLitros(ini, fin, cfg.contadorMaxAceites || cfg.contadorMax);
+      if (calc < 0) {
+        const ok = confirm('La lectura final es menor que la inicial y no parece una vuelta de contador (' + nf(ini, 2) + ' — ' + nf(fin, 2) + ').\n\n¿Guardar de todos modos?');
+        if (!ok) return;
+      }
+    }
+    try {
+      Store.save({ id, tipo:'aceite_boba', fecha, producto, inicial:ini, final:fin, notas:notas });
+      toast(fin == null ? 'Lectura inicial de ' + producto + ' guardada.' : 'Cuenta litros de ' + producto + ' guardada.', 'ok');
+      render();
+    } catch (err) { toast(err.message || 'No se pudo guardar la cuenta litros.', 'err'); }
+  }
+
+  function saveAceiteForm() {
+    const form = $('#aceiteForm'); if (!form) return;
+    const e = form.elements;
+    const d = {
+      fecha: e.fecha.value,
+      equipo: String(e.equipo.value || '').trim(),
+      tipoAceite: e.tipoAceite ? e.tipoAceite.value : 'Hidráulico Shell',
+      litros: e.litros.value,
+      descripcion: e.descripcion ? e.descripcion.value : '',
+      horometro: e.horometro ? e.horometro.value : '',
+      compartimento: e.compartimento ? e.compartimento.value : '',
+      motivo: e.motivo ? e.motivo.value : '',
+      precio: e.precio ? e.precio.value : '',
+      mecanico: e.mecanico ? e.mecanico.value : '',
+      responsable: e.responsable ? e.responsable.value : '',
+      folio: e.folio ? e.folio.value : '',
+      notas: e.notas ? e.notas.value : ''
+    };
+    const litrosVal = parseDecimal(d.litros);
+    if (!d.fecha) { toast('Captura la fecha de la salida.', 'err'); if (e.fecha) e.fecha.focus(); return; }
+    if (!d.equipo) { toast('Escribe el equipo.', 'err'); e.equipo.focus(); return; }
+    if (litrosVal == null || !(litrosVal > 0)) { toast('Los litros deben ser mayores que cero.', 'err'); e.litros.focus(); return; }
+    try {
+      Store.save({
+        id: ui.editAceiteId || '', tipo:'aceite',
+        fecha: d.fecha, equipo: d.equipo, tipoAceite: d.tipoAceite,
+        litros: litrosVal, descripcion: d.descripcion, horometro: d.horometro,
+        compartimento: d.compartimento, motivo: d.motivo, precio: d.precio,
+        mecanico: d.mecanico, responsable: d.responsable, folio: d.folio, notas: d.notas
+      });
+      toast(ui.editAceiteId ? 'Salida de aceite actualizada.' : 'Salida de aceite agregada.', 'ok');
+      ui.aceites.fecha = d.fecha;
+      ui.editAceiteId = null;
+      ui.draftAceite = blankAceite(d.fecha);
+      render();
+    } catch (err) { toast(err.message || 'No se pudo guardar la salida de aceite.', 'err'); }
   }
 
   function saveCargaForm() {
@@ -1344,7 +1425,7 @@
       body = '' +
         '<section class="card">' +
           '<div class="card-head"><div><h2>Captura diaria de aceites</h2><p>Motor Shell e Hidráulico Shell · salidas y cuenta litros de despacho</p></div>' +
-            '<div class="row"><button class="btn ghost sm" type="button" data-act="aceite-prev-day">⬹</button><input type="date" id="aceitesFecha" value="' + esc(fecha) + '"><button class="btn ghost sm" type="button" data-act="aceite-next-day">⬺</button><button class="btn ghost sm" type="button" data-act="aceite-today">Hoy</button></div></div>' +
+            '<div class="row"><button class="btn ghost sm" type="button" data-act="aceite-prev-day">←</button><input type="date" id="aceitesFecha" value="' + esc(fecha) + '"><button class="btn ghost sm" type="button" data-act="aceite-next-day">→</button><button class="btn ghost sm" type="button" data-act="aceite-today">Hoy</button></div></div>' +
           '<p class="muted" style="margin:-4px 0 12px">' + esc(fmtDate(fecha,true)) + ' · ' + esc(weekday(fecha)) + '</p>' +
           notice('Registra las <strong>salidas/despachos</strong> del día y la <strong>cuenta litros</strong> de cada producto. Para análisis avanzado abre el <strong>Dashboard y gráficos</strong>.', '') +
         '</section>' +
@@ -1368,7 +1449,7 @@
             field('Descripción','<input name="descripcion" value="' + esc(d.descripcion) + '" placeholder="Equipo / descripción">') +
             field('Horómetro','<input name="horometro" value="' + esc(d.horometro) + '">') +
             field('Compartimento','<input name="compartimento" value="' + esc(d.compartimento) + '" placeholder="Sistema hidráulico">') +
-            field('Motivo','<input name="motivo" value="' + esc(d.motivo) + '" placeholder="Relleno, fuga, cambio⬦">') +
+            field('Motivo','<input name="motivo" value="' + esc(d.motivo) + '" placeholder="Relleno, fuga, cambio…">') +
           '</div><div class="grid cols-4" style="margin-top:12px">' +
             field('Precio/L','<input name="precio" type="number" step="any" min="0" value="' + esc(d.precio) + '">') +
             field('Mecánico','<input name="mecanico" value="' + esc(d.mecanico) + '">') +
@@ -1382,7 +1463,7 @@
           '<div class="card-head"><div><h2>Salidas del día</h2><p>' + dayDispatches.length + ' renglones · ' + nf(totalDia,1) + ' L</p></div></div>' +
           (dayDispatches.length
             ? '<div class="tablewrap"><table><thead><tr><th>Equipo</th><th>Tipo de aceite</th><th>Compartimento</th><th>Motivo</th><th class="num">Litros</th><th>Mecánico</th><th>Folio</th><th></th></tr></thead><tbody>' +
-              dayDispatches.map(r=>'<tr><td><strong>' + esc(r.equipo) + '</strong><div class="muted" style="font-size:11.5px">' + esc(r.descripcion||'') + '</div></td><td>' + esc(r.tipoAceite||'—') + '</td><td>' + esc(r.compartimento||'—') + '</td><td>' + esc(r.motivo||'—') + '</td><td class="num"><strong>' + nf(r.litros,1) + '</strong></td><td>' + esc(r.mecanico||'—') + '</td><td class="mono">' + esc(r.folio||'—') + '</td><td class="actions"><button class="btn icon" type="button" data-act="edit-aceite" data-id="' + esc(r.id) + '" title="Editar">—S}</button><button class="btn icon del" type="button" data-act="del-aceite" data-id="' + esc(r.id) + '" title="Eliminar">—x</button></td></tr>').join('') +
+              dayDispatches.map(r=>'<tr><td><strong>' + esc(r.equipo) + '</strong><div class="muted" style="font-size:11.5px">' + esc(r.descripcion||'') + '</div></td><td>' + esc(r.tipoAceite||'—') + '</td><td>' + esc(r.compartimento||'—') + '</td><td>' + esc(r.motivo||'—') + '</td><td class="num"><strong>' + nf(r.litros,1) + '</strong></td><td>' + esc(r.mecanico||'—') + '</td><td class="mono">' + esc(r.folio||'—') + '</td><td class="actions"><button class="btn icon" type="button" data-act="edit-aceite" data-id="' + esc(r.id) + '" title="Editar">' + ICO_EDIT + '</button><button class="btn icon del" type="button" data-act="del-aceite" data-id="' + esc(r.id) + '" title="Eliminar">' + ICO_DEL + '</button></td></tr>').join('') +
               '</tbody><tfoot><tr><td colspan="4"><strong>Total día</strong></td><td class="num"><strong>' + nf(totalDia,1) + '</strong></td><td colspan="3"></td></tr></tfoot></table></div>'
             : '<div class="empty"><h3>Sin salidas este día</h3><p>Captura los despachos de aceite del día.</p></div>') +
         '</section>' +
@@ -1393,7 +1474,7 @@
             field('Desde','<input type="date" id="aceitesDesde" value="' + esc(desde) + '">') +
             field('Hasta','<input type="date" id="aceitesHasta" value="' + esc(hasta) + '">') +
             field('Producto','<select id="aceitesProducto"><option value="">Todos</option>' + ACEITE_PRODUCTOS.map(p=>'<option value="' + esc(p) + '"' + (ui.aceites.producto===p?' selected':'') + '>' + esc(p) + '</option>').join('') + '</select>') +
-            field('Buscar','<input type="search" id="aceitesQ" value="' + esc(ui.aceites.q) + '" placeholder="Equipo, folio, mecánico⬦">') +
+            field('Buscar','<input type="search" id="aceitesQ" value="' + esc(ui.aceites.q) + '" placeholder="Equipo, folio, mecánico…">') +
           '</div>' +
           '<div class="row" style="margin-top:12px"><button class="btn accent" type="button" data-act="export-aceites-xlsx">Exportar Excel de aceites</button><button class="btn ghost" type="button" data-act="pick-file-aceites">Importar Excel</button><button class="btn ghost sm" type="button" data-act="aceite-vista" data-vista="dashboard">Ver dashboard y gráficos</button><button class="btn accent" type="button" data-act="pdf-aceites" title="Generar reporte PDF avanzado de aceites">Reporte PDF aceites</button></div>' +
           '<div class="dropzone" id="dropZoneAceites" style="margin-top:12px"><input type="file" id="fileImportAceites" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><p><strong>Importar concentrado de aceites</strong> (.xlsx) · arrastra o elige archivo</p><button class="btn ghost sm" type="button" data-act="pick-file-aceites">Elegir archivo</button></div>' +
@@ -1401,7 +1482,7 @@
           '<div class="kpis" style="margin-top:12px">' + kpi('Salidas (renglones)', nf(rangeDispatches.length), 'en el periodo','') + kpi('Litros salidas', nf(totalRango,1)+' L', 'periodo filtrado','') + kpi('Lecturas cuenta litros', nf(metersRange.filter(m=>m.litros!=null).length), 'en el periodo','') + '</div>' +
           (rangeDispatches.length
             ? '<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Tipo de aceite</th><th>Compartimento</th><th>Motivo</th><th class="num">Litros</th><th>Mecánico</th><th>Folio</th><th></th></tr></thead><tbody>' +
-              rangeDispatches.map(r=>'<tr><td class="mono">' + esc(fmtShort(r.fecha)) + '</td><td><strong>' + esc(r.equipo) + '</strong></td><td>' + esc(r.tipoAceite||'—') + '</td><td>' + esc(r.compartimento||'—') + '</td><td>' + esc(r.motivo||'—') + '</td><td class="num">' + nf(r.litros,1) + '</td><td>' + esc(r.mecanico||'—') + '</td><td class="mono">' + esc(r.folio||'—') + '</td><td class="actions"><button class="btn icon" type="button" data-act="edit-aceite" data-id="' + esc(r.id) + '" title="Editar">—S}</button><button class="btn icon del" type="button" data-act="del-aceite" data-id="' + esc(r.id) + '" title="Eliminar">—x</button></td></tr>').join('') +
+              rangeDispatches.map(r=>'<tr><td class="mono">' + esc(fmtShort(r.fecha)) + '</td><td><strong>' + esc(r.equipo) + '</strong></td><td>' + esc(r.tipoAceite||'—') + '</td><td>' + esc(r.compartimento||'—') + '</td><td>' + esc(r.motivo||'—') + '</td><td class="num">' + nf(r.litros,1) + '</td><td>' + esc(r.mecanico||'—') + '</td><td class="mono">' + esc(r.folio||'—') + '</td><td class="actions"><button class="btn icon" type="button" data-act="edit-aceite" data-id="' + esc(r.id) + '" title="Editar">' + ICO_EDIT + '</button><button class="btn icon del" type="button" data-act="del-aceite" data-id="' + esc(r.id) + '" title="Eliminar">' + ICO_DEL + '</button></td></tr>').join('') +
               '</tbody></table></div>'
             : '<div class="empty" style="margin-top:12px"><h3>Sin salidas en el periodo</h3><p>Captura salidas o importa el Excel de aceites.</p></div>') +
         '</section>';
@@ -1453,7 +1534,7 @@
         '<div class="kpis">' +
           kpi('Litros salidas', nf(a.totalSalidas,1) + ' L', a.registros + ' renglones', '') +
           kpi('Litros cuenta litros', nf(a.totalCuenta,1) + ' L', a.lecturas + ' lecturas', '') +
-          kpi('Diferencia global', nf(a.totalCuenta - a.totalSalidas,1) + ' L', 'cuenta litros —— salidas', Math.abs(a.totalCuenta - a.totalSalidas) > 1 ? 'bad' : 'good') +
+          kpi('Diferencia global', nf(a.totalCuenta - a.totalSalidas,1) + ' L', 'cuenta litros - salidas', Math.abs(a.totalCuenta - a.totalSalidas) > 1 ? 'bad' : 'good') +
           kpi('Promedio diario', nf(a.promDia,1) + ' L', a.daysWith + ' días con actividad', '') +
           kpi('Día pico (salidas)', a.pico && a.pico.salidas ? nf(a.pico.salidas,1) + ' L' : '—', a.pico && a.pico.salidas ? fmtDate(a.pico.fecha) : 'Sin datos', '') +
           kpi('Top producto', topProd ? esc(topProd.label) : '—', topProd ? nf(topProd.value,1) + ' L' : '', '') +
@@ -1529,7 +1610,7 @@
       if (!parsed.dispatches.length && !parsed.meters.length) { toast('El archivo no contiene salidas ni lecturas de cuenta litros reconocibles.', 'err'); return; }
       ui.aceiteImportPreview = parsed;
       ui.aceiteImportName = file.name;
-      toast('Archivo le—do: ' + parsed.dispatches.length + ' salidas, ' + parsed.meters.length + ' lecturas.', 'ok');
+      toast('Archivo leído: ' + parsed.dispatches.length + ' salidas, ' + parsed.meters.length + ' lecturas.', 'ok');
       render();
       const inp = document.getElementById('fileImportAceites'); if (inp) inp.value = '';
     } catch (err) { console.error(err); toast('No se pudo leer el archivo: ' + (err.message || err), 'err'); const inp = document.getElementById('fileImportAceites'); if (inp) inp.value = ''; }

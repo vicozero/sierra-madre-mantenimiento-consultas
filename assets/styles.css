@@ -1,6 +1,6 @@
-﻿/* ---------------------------------------------------------------
-   Control de diÃ©sel â€” interfaz premium
-   DiseÃ±o: glass + depth, acentos Ã¡mbar/azul, enfoque industrial-minero
+/* ---------------------------------------------------------------
+   Control de diésel — interfaz premium
+   Diseño: glass + depth, acentos ámbar/azul, enfoque industrial-minero
 ---------------------------------------------------------------- */
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -183,7 +183,7 @@ button{font:inherit;color:inherit}
 .chip .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ---------- NavegaciÃ³n / pestaÃ±as ---------- */
+/* ---------- Navegación / pestañas ---------- */
 .tabs{
   position:sticky; top:65px; z-index:25;
   display:flex; gap:6px; align-items:center;
@@ -379,7 +379,7 @@ tfoot td{padding:11px 13px;font-weight:700;background: color-mix(in srgb, var(--
 .bar-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .bar-val{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink-2)}
 
-/* ---------- GrÃ¡fica ---------- */
+/* ---------- Gráfica ---------- */
 .chart{width:100%;height:auto;display:block;overflow:visible}
 .chart text{font-family:var(--font);fill:var(--muted);font-size:10.5px;font-weight:500}
 .chart .grid-line{stroke:var(--line);stroke-width:1}
@@ -391,7 +391,7 @@ tfoot td{padding:11px 13px;font-weight:700;background: color-mix(in srgb, var(--
 .chart .legend{font-size:11.5px;fill:var(--ink-2);font-weight:600}
 .empty-chart{padding:40px 12px;text-align:center;color:var(--muted);font-size:13.5px;border:1px dashed var(--line-strong);border-radius:16px; background: color-mix(in srgb, var(--surface-2) 60%, transparent)}
 
-/* ---------- Estados vacÃ­os / avisos ---------- */
+/* ---------- Estados vacíos / avisos ---------- */
 .empty{padding:32px 20px;text-align:center;color:var(--muted);font-size:14px}
 .empty h3{font-size:16px;color:var(--ink);margin-bottom:6px}
 .notice{
@@ -445,7 +445,7 @@ details.help code{font-family:var(--mono);font-size:12px;background:var(--surfac
 }
 .foot a{text-decoration:none;border-bottom:1px dotted currentColor}
 
-/* ---------- Captura del dÃ­a ---------- */
+/* ---------- Captura del día ---------- */
 .day-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .shift{
   display:flex;flex-direction:column;gap:14px;min-width:0;
