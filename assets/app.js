@@ -723,7 +723,7 @@
         '<section class="card no-print"><div class="card-head"><div><h2>Bitácora de aceites</h2><p>Registros de contadores de aceites cotejados con salidas por día y producto (independiente del diésel).</p></div></div>' +
           '<div class="filters">' + field('Desde','<input type="date" name="bitAceiteDesde" value="' + esc(desde) + '">') + field('Hasta','<input type="date" name="bitAceiteHasta" value="' + esc(hasta) + '">') +
             '<div class="field"><label>Atajos</label><div class="row"><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes">Este mes</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="mes-pasado">Mes pasado</button><button class="btn ghost sm" type="button" data-act="quick-range" data-range="30">30 días</button></div></div></div>' +
-          '<div class="divider"></div><div class="row"><button class="btn accent" type="button" data-act="pdf-aceites" title="Generar reporte PDF avanzado de aceites">Reporte PDF aceites</button><button class="btn ghost" type="button" data-act="print-report">Imprimir / PDF</button></div>' +
+          '<div class="divider"></div><div class="row"><button class="btn accent" type="button" data-act="export-bitacora-aceites-xlsx" title="Exportar el periodo a Excel (salidas y cuenta litros)">Exportar Excel</button><button class="btn accent" type="button" data-act="pdf-aceites" title="Generar reporte PDF avanzado de aceites">Reporte PDF aceites</button><button class="btn ghost" type="button" data-act="print-report">Imprimir / PDF</button></div>' +
         '</section>' +
         aceitesCountersBitacoraHtml(desde, hasta) +
       '</div>';
@@ -848,7 +848,8 @@
 
     products.forEach((p) => {
       const estado = p.meters.length ? (Math.abs(p.totalDiff) <= 1 ? badge('Cuadra', 'ok') : badge('Diferencia', 'bad')) : badge('Sin lecturas', 'warn');
-      html += '<section class="card"><div class="card-head"><div><h2>' + esc(p.prod) + ' · cotejo contador vs salidas</h2><p>' + periodo + '</p></div>' + estado + '</div>' +
+      html += '<section class="card"><div class="card-head"><div><h2>' + esc(p.prod) + ' · cotejo contador vs salidas</h2><p>' + periodo + '</p></div>' +
+        '<div class="row"><button class="btn ghost sm" type="button" data-act="export-bitacora-aceites-producto" data-producto="' + esc(p.prod) + '" title="Exportar solo ' + esc(p.prod) + ' a Excel">Exportar Excel de ' + esc(p.prod) + '</button>' + estado + '</div></div>' +
         '<div class="kpis">' +
           kpi('Contador', nf(p.totalContador, 2) + ' L', p.meters.length + ' lecturas', '') +
           kpi('Salidas', nf(p.totalSalidas, 2) + ' L', p.dispatches.length + ' salidas', '') +
@@ -1135,6 +1136,8 @@
       Store.remove(rec.id); toast('Cuenta litros eliminada.','ok'); render(); return;
     }
     if (act === 'export-aceites-xlsx') { exportAceitesXlsx(); return; }
+    if (act === 'export-bitacora-aceites-xlsx') { exportAceitesXlsxRange(ui.bitacoraAceites.desde, ui.bitacoraAceites.hasta); return; }
+    if (act === 'export-bitacora-aceites-producto') { exportAceitesXlsxRange(ui.bitacoraAceites.desde, ui.bitacoraAceites.hasta, btn.dataset.producto); return; }
     if (act === 'pdf-aceites') { pdfAceitesReport(); return; }
     if (act === 'pick-file-aceites') { const f = $('#fileImportAceites'); if (f) f.click(); return; }
     if (act === 'cancel-import-aceites') { ui.aceiteImportPreview = null; ui.aceiteImportName = ''; render(); return; }
@@ -1627,14 +1630,26 @@
   }
 
 
-  function exportAceitesXlsx() {
-    const desde = ui.aceites.desde, hasta = ui.aceites.hasta;
-    const dispatches = Store.getAceiteDispatches().filter((r)=>r.fecha>=desde && r.fecha<=hasta);
-    const meters = Store.getAceiteMeters().filter((r)=>r.fecha>=desde && r.fecha<=hasta);
-    if (!dispatches.length && !meters.length) { toast('No hay datos de aceites en el periodo para exportar.', 'err'); return; }
+  function exportAceitesXlsx() { exportAceitesXlsxRange(ui.aceites.desde, ui.aceites.hasta); }
+
+  function exportAceitesXlsxRange(desde, hasta, producto) {
+    const soloProducto = producto ? (Store.canonProductoAceite ? Store.canonProductoAceite(producto) : producto) : '';
+    const canon = (v) => Store.canonProductoAceite ? Store.canonProductoAceite(v) : v;
+    let dispatches = Store.getAceiteDispatches().filter((r)=>r.fecha>=desde && r.fecha<=hasta);
+    let meters = Store.getAceiteMeters().filter((r)=>r.fecha>=desde && r.fecha<=hasta);
+    if (soloProducto) {
+      dispatches = dispatches.filter((r)=>canon(r.tipoAceite) === soloProducto);
+      meters = meters.filter((r)=>canon(r.producto) === soloProducto);
+    }
+    if (!dispatches.length && !meters.length) {
+      toast(soloProducto ? ('No hay datos de ' + producto + ' en el periodo para exportar.') : 'No hay datos de aceites en el periodo para exportar.', 'err');
+      return;
+    }
     try {
       const bytes = AceitesXLSX.build({ config: Store.getConfig(), dispatches, meters, desde, hasta });
-      const name = AceitesXLSX.filename(desde, hasta);
+      const base = AceitesXLSX.filename(desde, hasta).replace(/\.xlsx$/i, '');
+      const sufijo = soloProducto ? '_' + soloProducto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_') : '';
+      const name = (soloProducto ? base.replace(/^REPORTE_ACEITES_/, 'BITACORA_ACEITES_') : base) + sufijo + '.xlsx';
       download(name, bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       toast('Excel generado: ' + name, 'ok');
     } catch (err) { console.error(err); toast('No se pudo generar el Excel: ' + (err.message||err), 'err'); }
