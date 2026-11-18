@@ -262,7 +262,7 @@
     let cls = 'chip', label = 'Solo local', title = 'Los datos se guardan solo en este navegador';
     if (st.syncing) { cls += ' warn'; label = 'Sincronizando…'; title = 'Conectando con GitHub'; }
     else if (st.demo) { cls += ' warn'; label = 'Datos de ejemplo'; title = 'Borra el ejemplo para empezar a capturar'; }
-    else if (st.source === 'github-readonly') { cls += st.lastError ? ' err' : ' ok'; label = 'GitHub · solo lectura'; title = st.lastError || 'Datos compartidos desde GitHub. Configura un token en Ajustes para poder guardar.'; }
+    else if (st.source === 'github-readonly') { cls += st.lastError ? ' err' : ' ok'; label = 'GitHub · solo lectura'; title = st.lastError || (!st.records.length ? 'Sincronizado con GitHub, pero aún no hay datos publicados. Publícalos desde Ajustes → Datos locales.' : 'Datos compartidos desde GitHub. Configura un token en Ajustes para poder guardar.'); }
     else if (!Store.isRemoteReady()) { cls += ' warn'; label = 'Solo local'; title = 'Configura el repositorio y el token en Ajustes para guardar en GitHub'; }
     else if (st.pending.length) { cls += ' warn'; label = st.pending.length + ' pendiente' + (st.pending.length === 1 ? '' : 's'); title = 'Cambios sin enviar a GitHub'; }
     else if (st.lastError) { cls += ' err'; label = 'Error de sync'; title = st.lastError; }
@@ -298,6 +298,10 @@
     else if (ui.tab === 'usuarios') view.innerHTML = viewUsuarios();
     else if (ui.tab === 'aceites') view.innerHTML = viewAceites();
     else view.innerHTML = viewAjustes();
+    const stSync = Store.getState();
+    if (stSync.source === 'github-readonly' && !stSync.records.length && !stSync.demo) {
+      view.innerHTML = notice('<strong>Sincronizado con GitHub, pero aún no hay datos publicados.</strong> En el equipo donde capturaste, ve a <a href="#/ajustes">Ajustes → Datos locales</a>, descarga el ZIP y sube los archivos a la carpeta <code>data/</code> del repositorio. Después pulsa <strong>Sincronizar</strong>.', 'warn') + view.innerHTML;
+    }
     if (ui.tab === 'dashboard') drawDashboardCharts();
     if (ui.tab === 'reportes') drawReportCharts();
     if (ui.tab === 'aceites' && (!ui.aceites.vista || ui.aceites.vista === 'dashboard' || ui.aceites.vista === 'captura')) drawAceitesCharts();
