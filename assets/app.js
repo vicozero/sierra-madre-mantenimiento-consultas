@@ -1400,10 +1400,16 @@
     catch (err) { toast(err.message || 'No se pudo guardar la configuración.', 'err'); }
   }
 
-  function saveRemoteForm() {
+  async function saveRemoteForm() {
     const form = $('#remoteForm'); if (!form) return; const e = form.elements; const token = String(e.token.value||'').trim();
     Store.setRemote({ owner:e.owner.value, repo:e.repo.value, branch:e.branch.value, dir:e.dir.value }, token || Store.getState().token, e.remember.checked);
-    toast(Store.isRemoteReady() ? 'Conexión guardada.' : 'Guarda también el token para conectar.', Store.isRemoteReady() ? 'ok' : 'err');
+    if (!Store.isRemoteReady()) { toast('Guarda también el token para conectar.', 'err'); render(); return; }
+    toast('Conexión guardada. Subiendo los datos capturados…', 'ok');
+    try {
+      const res = await Store.sync();
+      const changed = res && res.pushed ? res.pushed.changed : 0;
+      toast(changed ? 'Conexión lista · ' + changed + ' cambio(s) subidos a GitHub.' : 'Conexión lista · GitHub al día.', 'ok');
+    } catch (err) { toast('Conexión guardada, pero no se pudo subir: ' + (err.message||err), 'err'); }
     render();
   }
   async function testConnection() {
