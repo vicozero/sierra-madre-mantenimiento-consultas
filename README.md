@@ -50,14 +50,17 @@ GitHub, que hace de base de datos y de historial de cambios.
 
 ```
 Navegador (app en GitHub Pages o incrustada en Google Sites)
-        │  lee/escribe con tu token
-        ▼
-GitHub REST API  ──►  Repositorio
+        │
+        ├─ LECTURA (todos, sin token): fetch de los JSON publicados por el propio sitio
+        │
+        └─ ESCRITURA (solo quien captura, con token): GitHub REST API
+                       ▼
+                  Repositorio
                        ├── config.json          (empresa, catálogos, tope del contador)
                        └── data/
                            ├── index.json       (lista de periodos disponibles)
-                           ├── 2026-11.json     (cargas y bobas de noviembre 2026)
-                           └── 2026-12.json     (cargas y bobas de diciembre 2026)
+                           ├── 2026-11.json     (cargas, bobas y aceites de noviembre 2026)
+                           └── 2026-12.json     (cargas, bobas y aceites de diciembre 2026)
 ```
 
 - Los datos se guardan **un archivo por mes** para que el repositorio crezca sin problemas.
@@ -70,9 +73,15 @@ GitHub REST API  ──►  Repositorio
 
 - La boba es **única por fecha + turno**. Si vuelves a guardar el mismo turno, se actualiza en
   lugar de duplicarse.
-- La app mantiene una copia en `localStorage` y una **cola de cambios pendientes**. Si no hay
-  internet o falla GitHub, los cambios quedan en cola y se reintentan al volver la conexión o al
-  pulsar **Sincronizar**.
+- **Ver los datos no requiere configuración**: al abrir la página, la app descarga los JSON
+  públicos del sitio y muestra el estado **GitHub · solo lectura**. Se actualiza sola cada minuto
+  y al volver a la pestaña; el botón **Sincronizar** fuerza la actualización.
+- **Guardar** sí requiere token. La app mantiene una copia en `localStorage` y una **cola de
+  cambios pendientes**. Si no hay internet o falla GitHub, los cambios quedan en cola y se
+  reintentan al volver la conexión o al pulsar **Sincronizar**.
+- Sin token también puedes publicar: en **Ajustes → Datos locales → Publicar sin token** se
+  descarga un ZIP con `data/index.json` y los `data/AAAA-MM.json`, listos para subir a la carpeta
+  `data/` del repositorio desde la web de GitHub.
 - Si dos personas editan a la vez, la app detecta el conflicto (SHA distinto), vuelve a leer el
   archivo, aplica su cambio sobre la versión más reciente y reintenta automáticamente.
 
@@ -111,10 +120,20 @@ También puedes arrastrar los archivos desde la web de GitHub (**Add file → Up
 > En cuentas gratuitas, GitHub Pages solo publica sitios de repositorios **públicos**.
 > Si necesitas repositorio privado + Pages, hace falta un plan de pago (Pro/Team). Ver sección 9.
 
-### 3.3 Crear el token de GitHub
+### 3.3 Ver los datos desde cualquier equipo (sin token)
 
-El token permite que la página **guarde** cambios en el repositorio. Sin token, la app funciona
-en modo local (solo en ese navegador).
+No hay que configurar nada en las personas que solo consultan: abre la URL de GitHub Pages y la
+app leerá automáticamente `config.json`, `data/index.json` y los JSON mensuales publicados. El
+indicador superior mostrará **GitHub · solo lectura**.
+
+Para que aparezcan datos, primero hay que publicarlos (sección 3.6 con ZIP, o sección 3.5 con
+token). Si el archivo del mes está vacío (`[]`), la app lo mostrará vacío: revisa que subiste el
+JSON correcto y pulsa **Sincronizar**.
+
+### 3.4 Crear el token de GitHub (solo para guardar)
+
+El token permite que la página **guarde** cambios en el repositorio. Sin token se puede ver y
+descargar todo, pero los cambios que hagas en la página no se publicarán.
 
 1. GitHub → foto de perfil → **Settings**.
 2. **Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
@@ -126,17 +145,30 @@ en modo local (solo en ese navegador).
      (Metadata queda en *Read-only* automáticamente.)
 4. **Generate token** y copia el valor (`github_pat_...`). Solo se muestra una vez.
 
-### 3.4 Conectar la app
+### 3.5 Conectar la app (para guardar)
 
-1. Abre la URL de GitHub Pages.
+1. Abre la URL de GitHub Pages (ya verás los datos publicados en modo solo lectura).
 2. Ve a **Ajustes → GitHub**.
 3. Escribe usuario, repositorio, rama (`main`), carpeta (`data`) y pega el token.
 4. Marca **Recordar el token en este equipo** si el equipo es de confianza.
 5. Pulsa **Probar conexión** (debe decir que puede leer y escribir) y luego **Guardar conexión**.
 
-Listo: el indicador superior pasará a **GitHub al día**.
+Listo: el indicador superior pasará a **GitHub al día** y tus cambios se subirán solos.
 
-### 3.5 Revisar la empresa y los catálogos
+### 3.6 Publicar datos sin token
+
+Si no quieres crear token, puedes publicar igual desde la interfaz web de GitHub:
+
+1. En la app (en el navegador donde tengas tus datos), ve a **Ajustes → Datos locales**.
+2. Pulsa **Descargar datos para GitHub (.zip)**. Se genera `datos-para-github.zip` con:
+   - `data/index.json` (lista de periodos).
+   - `data/AAAA-MM.json` (un archivo por mes con todas las capturas).
+3. En GitHub, entra al repositorio → carpeta `data/` → **Add file → Upload files**.
+4. Arrastra los archivos del ZIP (descomprímelos primero) y confirma con **Commit changes**.
+
+En uno o dos minutos, GitHub Pages publica los JSON y cualquier equipo los verá al abrir la URL.
+
+### 3.7 Revisar la empresa y los catálogos
 
 `config.json` ya viene precargado con los datos del concentrado real:
 
@@ -203,8 +235,10 @@ Recomendaciones:
    folio y ubicación. Al escribir un equipo del catálogo se autocompletan categoría y
    departamento.
 5. **Boba**: revisa el mes completo y detecta días con cargas sin lectura.
-6. **Reportes**: elige el periodo, descarga el Excel o imprime. Todo cambio se envía a GitHub
-   automáticamente (unos segundos después) y queda en cola si estás sin conexión.
+6. **Reportes**: elige el periodo, descarga el Excel o imprime. Si configuraste token, cada cambio
+   se envía a GitHub automáticamente (unos segundos después) y queda en cola si estás sin conexión.
+   Sin token, usa **Ajustes → Datos locales → Publicar sin token** para actualizar lo que ven los
+   demás.
 
 ### Formato de los registros
 
@@ -317,16 +351,17 @@ no depende de CDN ni de librerías externas en tiempo de ejecución.
 ├── index.html              Interfaz (una sola página con pestañas)
 ├── assets/
 │   ├── styles.css          Estilos (claro/oscuro, responsive, impresión)
-│   ├── store.js            Datos: GitHub API, caché local, cola de pendientes
+│   ├── store.js            Datos: lectura pública sin token, GitHub API, caché y pendientes
 │   ├── xlsx.js             Lector/escritor de Excel (.xlsx) sin dependencias externas
+│   ├── aceites-xlsx.js     Excel de aceites (hojas Motor e Hidráulico)
 │   ├── charts.js           Gráfica SVG sin dependencias
 │   ├── app.js              Vistas, formularios, reportes e importación/exportación
 │   └── vendor/
 │       └── fflate.min.js   Compresión ZIP para los .xlsx
 ├── config.json             Empresa, catálogos, tope del cuenta-litros
-├── data/                   (se crea solo al sincronizar)
+├── data/                   (se lee al abrir; se publica con token o subiendo el ZIP)
 │   ├── index.json          Periodos disponibles
-│   └── 2026-11.json        Cargas y bobas del mes
+│   └── 2026-11.json        Cargas, bobas y aceites del mes
 ├── robots.txt              Evita indexación del sitio en buscadores
 └── .nojekyll               Desactiva Jekyll en GitHub Pages
 ```
@@ -337,6 +372,8 @@ no depende de CDN ni de librerías externas en tiempo de ejecución.
 
 Es importante que lo tengas claro antes de usarlo con datos reales:
 
+- **Sin token solo se lee**: cualquier persona puede ver los datos publicados, pero no puede
+  modificarlos desde la página. El botón **Sincronizar** en ese modo solo actualiza la lectura.
 - **El token se guarda en el navegador**, no en el repositorio. Cualquiera que use ese navegador
   con la sesión abierta podría verlo; por eso conviene un equipo de confianza y, si es compartido,
   no marcar «recordar».
@@ -356,12 +393,21 @@ Es importante que lo tengas claro antes de usarlo con datos reales:
 
 ## 10. Preguntas frecuentes
 
+**Aparece «GitHub · solo lectura», ¿por qué no puedo guardar?**
+Es el modo normal cuando no hay token: todos ven los datos publicados, pero solo quien configura
+un token en **Ajustes → GitHub** puede subir cambios. También puedes publicar con el ZIP de
+**Ajustes → Datos locales**.
+
 **No sincroniza y aparece «Error de sync».**
 Revisa el mensaje en Ajustes. Causas típicas: token vencido, token sin permiso de escritura,
-rama incorrecta o el repositorio no existe. Pulsa **Probar conexión**.
+rama incorrecta o el repositorio no existe. Pulsa **Probar conexión**. Si no usas token,
+**Sincronizar** solo actualiza la lectura; un error aquí significa que no se pudieron leer los
+JSON del sitio.
 
 **«No se pudo leer data/... ¿El repositorio es público?»**
-Sin token, la app solo puede leer repositorios públicos. Configura el token para repos privados.
+Sin token, la app lee los JSON servidos por el propio GitHub Pages, que requieren sitio público.
+Comprueba que Pages esté activo y que los archivos estén en `data/`. Si el sitio es privado,
+necesitas un token o un backend con autenticación.
 
 **GitHub Pages da 404.**
 Espera un par de minutos tras activar Pages y confirma que `index.html` está en la raíz de la rama publicada.
@@ -382,8 +428,9 @@ Descarga el Excel desde **Reportes** y/o conserva el repositorio: cada archivo m
 historial de cambios en Git.
 
 **¿Funciona sin internet?**
-Sí, en modo local: los registros se guardan en el navegador y se envían cuando vuelve la conexión
-(con token configurado).
+Sí: los registros se guardan en el navegador. Con token se envían cuando vuelve la conexión; sin
+token puedes descargar el ZIP y subirlo después. Los datos ya publicados se recargan solos al
+recuperar la conexión o al volver a la pestaña.
 
 ---
 

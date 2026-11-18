@@ -459,6 +459,18 @@ window.Store = (function () {
     catch (e) { throw new Error('El archivo ' + path + ' no contiene JSON válido.'); }
   }
 
+  /** Lee un JSON público servido por el propio sitio (GitHub Pages), sin token ni CORS. */
+  async function readJsonPublic(path) {
+    const url = path + (path.indexOf('?') === -1 ? '?' : '&') + 'v=' + Date.now();
+    const res = await fetch(url, { cache: 'no-store' });
+    if (res.status === 404) return { missing: true };
+    if (!res.ok) throw new Error('No se pudo leer ' + path + ' (' + res.status + ').');
+    const text = await res.text();
+    if (!text.trim()) return { data: null, sha: null };
+    try { return { data: JSON.parse(text), sha: null }; }
+    catch (e) { throw new Error('El archivo ' + path + ' no contiene JSON válido.'); }
+  }
+
   async function writeFile(path, content, sha, message) {
     if (!state.token) throw new Error('Falta el token de GitHub para guardar.');
     const { owner, repo, branch } = state.remote;
@@ -659,9 +671,14 @@ window.Store = (function () {
       });
     }
     state.source = 'local';
-    if (!cfg) return loadLocalConfig().then(notify, notify);
-    notify();
-    return Promise.resolve();
+    // Sin token, la página lee igualmente los datos públicos del sitio (modo solo lectura).
+    const finish = async () => {
+      try { await pullPublic({ silent: true }); }
+      catch (err) { state.lastError = err.message; }
+      notify();
+    };
+    if (!cfg) return loadLocalConfig().then(finish, finish);
+    return finish();
   }
 
   if (typeof window !== 'undefined') {
@@ -670,6 +687,20 @@ window.Store = (function () {
         pushPending().catch(function () {});
       }
     });
+
+    // En modo solo lectura, refrescar los datos compartidos al volver a la pestaña.
+    let lastAutoPull = 0;
+    const autoPull = async () => {
+      if (isRemote() || state.demo || state.syncing) return;
+      if (Date.now() - lastAutoPull < 30000) return;
+      lastAutoPull = Date.now();
+      try { await pullPublic({ silent: true }); } catch (e) { /* se reintenta después */ }
+    };
+    window.addEventListener('focus', autoPull);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) autoPull(); });
+      window.setInterval(function () { if (!document.hidden) autoPull(); }, 60000);
+    }
   }
 
   /** En modo local intenta leer config.json del mismo sitio (GitHub Pages). */
@@ -685,18 +716,19 @@ window.Store = (function () {
     } catch (e) { /* sin config.json: se usa el ejemplo */ }
   }
 
-  async function pull() {
-    if (!isRemote()) {
-      state.source = 'local';
-      return { ok: false, reason: 'sin-configurar' };
-    }
+  async function pullWith(reader, opts) {
+    const o = opts || {};
+    const dir = String(state.remote.dir || 'data');
+    const indexPath = o.indexPath || (dir + '/index.json');
+    const periodPath = (p) => dir + '/' + p + '.json';
+
     state.lastError = null;
-    const cfgRes = await readJson('config.json');
+    const cfgRes = await reader('config.json');
     if (!cfgRes.missing && cfgRes.data) {
       state.config = normalizeConfig(cfgRes.data);
       persistConfig();
     }
-    const idx = await readJson(displayPath('index.json'));
+    const idx = await reader(indexPath);
     const idxPeriods = idx.data
       ? (Array.isArray(idx.data.periods) ? idx.data.periods : (Array.isArray(idx.data.years) ? idx.data.years : []))
       : [];
@@ -704,7 +736,7 @@ window.Store = (function () {
     const periods = uniquePeriods(idxPeriods.concat(localPeriods));
 
     const results = await Promise.all(periods.map((period) =>
-      readJson(displayPath(period + '.json'))
+      reader(periodPath(period))
         .then((r) => ({ period: period, data: r.missing ? [] : r.data }))
         .catch((err) => ({ period: period, error: err }))
     ));
@@ -717,9 +749,18 @@ window.Store = (function () {
       loadedPeriods.set(r.period, arr);
     });
 
-    // Conservar local solo de periodos que no se pudieron leer
+    // En modo solo lectura no se borran datos locales de un periodo que el sitio tenga vacío.
+    if (o.preserveLocal) {
+      loadedPeriods.forEach((arr, period) => {
+        const local = state.records.filter((rec) => periodOf(rec) === period);
+        const hasPending = state.pending.some((p) => p.period === period);
+        if (!arr.length && local.length && !hasPending) loadedPeriods.delete(period);
+      });
+    }
+
+    const before = state.records;
     state.records = sortRecords(
-      state.records.filter((rec) => !loadedPeriods.has(periodOf(rec)))
+      before.filter((rec) => !loadedPeriods.has(periodOf(rec)))
         .concat(Array.from(loadedPeriods.values()).reduce((a, b) => a.concat(b), []))
     );
     // Reaplicar pendientes (por si el remoto aún no los tiene)
@@ -730,17 +771,49 @@ window.Store = (function () {
     state.records = sortRecords(state.records.map((r) => normalizeRecord(r)).filter(Boolean));
 
     state.periods = uniquePeriods(state.records.map(periodOf));
-    state.source = 'github';
+    state.source = o.readOnly ? 'github-readonly' : 'github';
     state.lastSync = nowISO();
+    const changed = JSON.stringify(before) !== JSON.stringify(state.records);
     persistData();
-    notify();
-    return { ok: true, periods: periods.length, errors: errors };
+    if (changed || !o.silent) notify();
+    return { ok: true, periods: periods.length, errors: errors, changed: changed };
+  }
+
+  async function pull() {
+    if (!isRemote()) {
+      state.source = 'local';
+      return { ok: false, reason: 'sin-configurar' };
+    }
+    return pullWith(readJson);
+  }
+
+  /** Sin token: lee los JSON públicos del propio sitio (GitHub Pages). */
+  async function pullPublic(opts) {
+    return pullWith(readJsonPublic, { readOnly: true, preserveLocal: true, silent: !!(opts && opts.silent) });
   }
 
   async function sync() {
-    if (!isRemote()) throw new Error('Configura primero el repositorio y el token en Ajustes.');
     if (state.demo) throw new Error('Estás viendo datos de ejemplo. Bórralos antes de sincronizar.');
     if (state.syncing && flushPromise) return flushPromise;
+
+    // Sin token: el botón Sincronizar solo actualiza la lectura compartida.
+    if (!isRemote()) {
+      state.syncing = true;
+      state.lastError = null;
+      notify();
+      try {
+        const pulled = await pullPublic();
+        return { ok: true, pulled: pulled, pushed: null };
+      } catch (err) {
+        state.lastError = err.message;
+        state.source = 'local';
+        notify();
+        throw err;
+      } finally {
+        state.syncing = false;
+        notify();
+      }
+    }
 
     state.syncing = true;
     state.lastError = null;
@@ -1181,11 +1254,13 @@ window.Store = (function () {
     aceiteBobaFor: aceiteBobaFor,
     aceiteDayInfo: aceiteDayInfo,
     isRemoteReady: isRemoteReady,
+    isReadOnly: function () { return state.source === 'github-readonly'; },
     isDemo: isDemo,
     pendingCount: pendingCount,
     repoUrl: repoUrl,
     sync: sync,
     pull: pull,
+    pullPublic: pullPublic,
     pushPending: pushPending,
     save: save,
     upsert: save,

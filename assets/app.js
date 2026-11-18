@@ -231,8 +231,11 @@
       const btn = $('#btnSync'); btn.disabled = true;
       try {
         const res = await Store.sync();
-        const changed = res && res.pushed ? res.pushed.changed : 0;
-        toast(changed ? 'Sincronizado · ' + changed + ' cambio(s) enviados' : 'Sincronizado · sin cambios pendientes', 'ok');
+        if (res && res.pushed === null) toast('Datos compartidos actualizados desde GitHub.', 'ok');
+        else {
+          const changed = res && res.pushed ? res.pushed.changed : 0;
+          toast(changed ? 'Sincronizado · ' + changed + ' cambio(s) enviados' : 'Sincronizado · sin cambios pendientes', 'ok');
+        }
       } catch (err) { toast(err.message || 'No se pudo sincronizar', 'err'); }
       finally { btn.disabled = false; render(); }
     });
@@ -259,15 +262,17 @@
     let cls = 'chip', label = 'Solo local', title = 'Los datos se guardan solo en este navegador';
     if (st.syncing) { cls += ' warn'; label = 'Sincronizando…'; title = 'Conectando con GitHub'; }
     else if (st.demo) { cls += ' warn'; label = 'Datos de ejemplo'; title = 'Borra el ejemplo para empezar a capturar'; }
+    else if (st.source === 'github-readonly') { cls += st.lastError ? ' err' : ' ok'; label = 'GitHub · solo lectura'; title = st.lastError || 'Datos compartidos desde GitHub. Configura un token en Ajustes para poder guardar.'; }
     else if (!Store.isRemoteReady()) { cls += ' warn'; label = 'Solo local'; title = 'Configura el repositorio y el token en Ajustes para guardar en GitHub'; }
     else if (st.pending.length) { cls += ' warn'; label = st.pending.length + ' pendiente' + (st.pending.length === 1 ? '' : 's'); title = 'Cambios sin enviar a GitHub'; }
     else if (st.lastError) { cls += ' err'; label = 'Error de sync'; title = st.lastError; }
     else { cls += ' ok'; label = 'GitHub al día'; title = 'Última sincronización: ' + (st.lastSync ? fmtDateTime(st.lastSync) : '—'); }
     chip.className = cls; text.textContent = label; chip.title = title;
-    const syncBtn = $('#btnSync'); if (syncBtn) syncBtn.disabled = st.syncing || !Store.isRemoteReady();
+    const syncBtn = $('#btnSync'); if (syncBtn) syncBtn.disabled = st.syncing || st.demo;
     const footLeft = $('#footLeft');
     if (footLeft) {
       if (Store.isRemoteReady()) footLeft.textContent = 'Repositorio: ' + st.remote.owner + '/' + st.remote.repo + ' · último cambio ' + (st.lastSync ? fmtDateTime(st.lastSync) : '—');
+      else if (st.source === 'github-readonly') footLeft.textContent = 'Datos compartidos desde GitHub · solo lectura · actualizado ' + (st.lastSync ? fmtDateTime(st.lastSync) : '—');
       else if (st.demo) footLeft.textContent = 'Datos de ejemplo · no se sincronizan';
       else footLeft.textContent = 'Modo local · los datos viven en este navegador';
     }
@@ -1025,14 +1030,16 @@
             field('Ubicaciones','<textarea name="ubicaciones" rows="4">' + esc((cfg.ubicaciones||[]).join('\n')) + '</textarea>') +
           '</div><div class="row end" style="margin-top:14px"><button class="btn" type="submit">Guardar configuración</button></div></form></section>' +
 
-        '<section class="card"><div class="card-head"><div><h2>GitHub</h2><p>Los datos se guardan como JSON mensual en el repositorio</p></div>' + badge(st.source==='github'?'Conectado':st.source==='github-offline'?'Sin conexión':'Solo local', st.source==='github'?'ok':st.source==='github-offline'?'err':'warn') + '</div>' +
+        '<section class="card"><div class="card-head"><div><h2>GitHub</h2><p>Los datos se comparten como JSON mensual en el repositorio</p></div>' + badge(st.source==='github'?'Conectado':st.source==='github-readonly'?'Solo lectura':st.source==='github-offline'?'Sin conexión':'Solo local', st.source==='github'?'ok':st.source==='github-readonly'?'ok':st.source==='github-offline'?'err':'warn') + '</div>' +
+          (st.source==='github-readonly' ? notice('<strong>Modo solo lectura activo:</strong> esta página ya muestra los datos publicados en GitHub sin necesidad de token. Se actualiza sola al abrirla o volver a la pestaña. Para <strong>guardar</strong> cambios desde aquí, crea un token con permiso <strong>Contents: Read and write</strong> y pégalo abajo.','ok') : '') +
           '<form id="remoteForm" novalidate><div class="grid cols-4">' + field('Usuario u organización','<input name="owner" value="'+esc(remote.owner)+'" placeholder="usuario" autocomplete="off">') + field('Repositorio','<input name="repo" value="'+esc(remote.repo)+'" placeholder="datos-diesel" autocomplete="off">') + field('Rama','<input name="branch" value="'+esc(remote.branch)+'">') + field('Carpeta','<input name="dir" value="'+esc(remote.dir)+'">') + '</div>' +
           '<div class="grid cols-2" style="margin-top:12px">' + field('Token de GitHub','<input name="token" type="password" autocomplete="off" placeholder="'+(tokenSaved?'•••••••• (guardado)':'ghp_… o github_pat_…')+'"><span class="hint">Fine-grained token con permiso <strong>Contents: Read and write</strong>.</span>') +
             '<div class="field"><label>Opciones</label><label class="check"><input type="checkbox" name="remember" '+(Store.hasRememberedToken()?'checked':'')+'> Recordar el token en este equipo</label></div></div>' +
           '<div class="row end" style="margin-top:14px"><button class="btn ghost" type="button" data-act="test-conn">Probar conexión</button><button class="btn ghost" type="button" data-act="forget-token">Olvidar token</button><button class="btn" type="submit">Guardar conexión</button></div></form>' +
           '<div class="divider"></div><dl class="kv"><dt>Modo</dt><dd>'+esc(st.source==='github'?'GitHub':st.source==='github-offline'?'GitHub (sin conexión)':'Solo este navegador')+'</dd><dt>Cambios pendientes</dt><dd>'+st.pending.length+'</dd><dt>Última sincronización</dt><dd>'+esc(st.lastSync?fmtDateTime(st.lastSync):'—')+'</dd>'+(st.lastError?'<dt>Último error</dt><dd class="neg">'+esc(st.lastError)+'</dd>':'')+'</dl></section>' +
 
-        '<section class="card"><div class="card-head"><div><h2>Datos locales</h2><p>El ejemplo sirve para probar la app sin datos reales</p></div></div><div class="row"><button class="btn ghost" type="button" data-act="load-demo">'+(Store.isDemo()?'Regenerar ejemplo':'Cargar datos de ejemplo')+'</button>' + (Store.isDemo()?'<button class="btn ghost" type="button" data-act="clear-demo">Borrar ejemplo</button>':'') + '<button class="btn danger" type="button" data-act="clear-local">Borrar todos los datos locales</button></div><p class="muted" style="margin-top:10px;font-size:12.5px">Borrar los datos locales no elimina lo que ya está en GitHub; al sincronizar se vuelve a descargar.</p></section>' +
+        '<section class="card"><div class="card-head"><div><h2>Datos locales</h2><p>El ejemplo sirve para probar la app sin datos reales</p></div></div><div class="row"><button class="btn ghost" type="button" data-act="load-demo">'+(Store.isDemo()?'Regenerar ejemplo':'Cargar datos de ejemplo')+'</button>' + (Store.isDemo()?'<button class="btn ghost" type="button" data-act="clear-demo">Borrar ejemplo</button>':'') + '<button class="btn danger" type="button" data-act="clear-local">Borrar todos los datos locales</button></div><p class="muted" style="margin-top:10px;font-size:12.5px">Borrar los datos locales no elimina lo que ya está en GitHub; al sincronizar se vuelve a descargar.</p>' +
+          '<div class="divider"></div><div><strong>Publicar sin token</strong><p class="muted" style="font-size:12.5px">Descarga los JSON de tus datos y súbelos a la carpeta <code>data/</code> del repositorio desde la web de GitHub (Add file → Upload files). Con eso todas las personas verán los datos sin configurar nada.</p><button class="btn ghost" type="button" data-act="export-github-json">Descargar datos para GitHub (.zip)</button></div></section>' +
       '</div>';
   }
 
@@ -1159,6 +1166,7 @@
     if (act === 'load-demo') { try { Store.loadDemo(); toast('Datos de ejemplo cargados.','ok'); render(); } catch (err) { toast(err.message,'err'); } return; }
     if (act === 'clear-demo') { if (!confirm('¿Borrar los datos de ejemplo?')) return; Store.clearDemo(); toast('Ejemplo borrado.','ok'); render(); return; }
     if (act === 'clear-local') { if (!confirm('¿Borrar TODOS los datos guardados en este navegador? Esta acción no se puede deshacer.')) return; Store.clearLocal(); toast('Datos locales borrados.','ok'); render(); return; }
+    if (act === 'export-github-json') { exportGithubJson(); return; }
 
     if (act === 'edit-user') {
       const u = readUsers().find((x)=>x.id===btn.dataset.id); if (!u) return;
@@ -1653,6 +1661,26 @@
       download(name, bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       toast('Excel generado: ' + name, 'ok');
     } catch (err) { console.error(err); toast('No se pudo generar el Excel: ' + (err.message||err), 'err'); }
+  }
+
+  /** Exporta los JSON mensuales tal como los espera la app, para subirlos a GitHub sin token. */
+  function exportGithubJson() {
+    const recs = Store.getRecords();
+    if (!recs.length) { toast('No hay datos locales para publicar.', 'err'); return; }
+    try {
+      const byPeriod = {};
+      recs.forEach((r) => {
+        const p = String(r.fecha || '').slice(0, 7) || 'sin-fecha';
+        (byPeriod[p] || (byPeriod[p] = [])).push(r);
+      });
+      const periods = Object.keys(byPeriod).sort();
+      const enc = new TextEncoder();
+      const files = { 'data/index.json': enc.encode(JSON.stringify({ periods: periods }, null, 2) + '\n') };
+      periods.forEach((p) => { files['data/' + p + '.json'] = enc.encode(JSON.stringify(byPeriod[p], null, 2) + '\n'); });
+      const zip = window.fflate.zipSync(files, { level: 6 });
+      download('datos-para-github.zip', zip, 'application/zip');
+      toast('ZIP descargado. Súbelo a la carpeta data/ de GitHub y extrae los archivos.', 'ok');
+    } catch (err) { console.error(err); toast('No se pudo generar el ZIP: ' + (err.message||err), 'err'); }
   }
 
   /* ------------------------------ importar/exportar ------------------------------ */
