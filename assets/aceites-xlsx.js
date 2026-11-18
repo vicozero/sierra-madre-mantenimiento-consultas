@@ -384,6 +384,13 @@ window.AceitesXLSX = (function () {
     if(s.indexOf('hidraul')!==-1 || s.indexOf('spirax')!==-1) return 'Hidráulico Shell';
     return text(v);
   }
+  // El nombre de la hoja (p. ej. "ACEITE DE MOTOR SHELL") también identifica el producto.
+  function productoDesdeNombreHoja(name){
+    const n = norm(name);
+    if(n.indexOf('motor')!==-1) return 'Motor Shell';
+    if(n.indexOf('hidraul')!==-1 || n.indexOf('spirax')!==-1) return 'Hidráulico Shell';
+    return '';
+  }
 
   function parse(buffer){
     if(!F) throw new Error('Falta el módulo de compresión (fflate).');
@@ -414,14 +421,14 @@ window.AceitesXLSX = (function () {
         const equipo = text(getCell(row,cEq)); if(!equipo) return;
         if(/^total/i.test(equipo) || /^total/i.test(text(getCell(row,cMot)))) return;
         const litros = num(getCell(row,cLit)); if(litros==null || !(litros>0)) return;
-        const tipoAceite = text(getCell(row,cTipo));
+        const tipoAceite = normProducto(getCell(row,cTipo)) || productoDesdeNombreHoja(s.name) || 'Hidráulico Shell';
         const horRaw = text(getCell(row,cHor));
         const hor = horRaw===''?null:(isFinite(Number(horRaw.replace(/,/g,'')))?Number(horRaw.replace(/,/g,'')):horRaw);
         dispatches.push({
           fecha, equipo,
           descripcion: text(getCell(row,cDesc)),
           horometro: hor,
-          tipoAceite: tipoAceite || 'Hidráulico Shell',
+          tipoAceite: tipoAceite,
           compartimento: text(getCell(row,cComp)),
           motivo: text(getCell(row,cMot)),
           litros: Math.round(litros*1000)/1000,

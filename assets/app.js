@@ -1665,8 +1665,17 @@
     const lecturas = (meta.meterRows != null ? meta.meterRows : (meta.bobaRows != null ? meta.bobaRows : (p.meters||[]).length));
     const litrosSal = (meta.litrosSalidas != null ? meta.litrosSalidas : (meta.litrosCargas != null ? meta.litrosCargas : null));
     const litrosCta = (meta.litrosCuenta != null ? meta.litrosCuenta : (meta.litrosBoba != null ? meta.litrosBoba : null));
+    const canonAceite = (v)=>Store.canonProductoAceite ? Store.canonProductoAceite(v) : v;
+    const porProducto = {};
+    (p.dispatches||[]).forEach((d)=>{
+      const prod = canonAceite(d.tipoAceite) || 'Sin producto';
+      const e = porProducto[prod] || (porProducto[prod] = { n: 0, l: 0 });
+      e.n++; e.l += Number(d.litros)||0;
+    });
+    const resumenProductos = Object.keys(porProducto).sort().map((prod)=>prod + ': ' + porProducto[prod].n + ' salidas (' + nf(porProducto[prod].l, 1) + ' L)').join(' · ');
     return '<div class="import-preview">' +
-      '<div class="notice ok"><div><strong>' + esc(ui.aceiteImportName||'Archivo') + '</strong> — ' + rows + ' salidas — ' + lecturas + ' lecturas cuenta litros — ' + esc(meta.desde?fmtDate(meta.desde):'') + ' a ' + esc(meta.hasta?fmtDate(meta.hasta):'') + '</div></div>' +
+      '<div class="notice ok"><div><strong>' + esc(ui.aceiteImportName||'Archivo') + '</strong> — ' + rows + ' salidas — ' + lecturas + ' lecturas cuenta litros — ' + esc(meta.desde?fmtDate(meta.desde):'') + ' a ' + esc(meta.hasta?fmtDate(meta.hasta):'') + '</div>' +
+        (resumenProductos ? '<div style="margin-top:6px"><strong>Salidas por producto:</strong> ' + esc(resumenProductos) + '</div>' : '') + '</div>' +
       '<div class="kpis" style="margin:12px 0">' + kpi('Litros en salidas', litros(litrosSal), 'del archivo','') + kpi('Litros en cuenta litros', litros(litrosCta), 'lecturas del archivo','') + kpi('Hojas', (meta.sheets||[]).length, (meta.sheets||[]).join(', '),'') + '</div>' +
       ((meta.warnings||[]).length ? notice('<strong>Avisos de lectura:</strong><ul style="margin:6px 0 0 18px">' + meta.warnings.slice(0,5).map((w)=>'<li>'+esc(w)+'</li>').join('') + '</ul>','warn') : '') +
       '<div class="row" style="margin-top:12px"><label class="check"><input type="radio" name="aceiteImportMode" value="merge" checked> Combinar</label><label class="check"><input type="radio" name="aceiteImportMode" value="replace"> Reemplazar periodos</label><span class="muted" style="font-size:12px">Combinar actualiza renglones iguales y agrega nuevos. Reemplazar deja el periodo exactamente como el archivo.</span></div>' +
