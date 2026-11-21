@@ -26,9 +26,9 @@ GitHub, que hace de base de datos y de historial de cambios.
 | **Usuarios** | Módulo inicial local de administración de accesos/usuarios. |
 | **Ajustes** | Empresa, catálogos, tope del contador, conexión con GitHub, datos de ejemplo y borrado local. |
 
-### Reportes PDF avanzados (nuevo)
-- **Diésel:** genera un reporte moderno en PDF (vía impresión del navegador) con portada, KPIs ejecutivos, gráficas (tendencia/acumulado/distribución/top), detalle diario, detalle por categoría y cotejo de cuenta litros vs salidas.
-- **Aceites:** genera un reporte moderno en PDF con KPIs, tendencia, distribución (producto/motivo/equipo/compartimento), detalle por producto, entradas, cotejo de consumo real por producto y detalle de salidas.
+### Reportes PDF profesionales
+- **Diésel:** genera un reporte moderno en PDF (vía impresión del navegador) con portada, índice, KPIs ejecutivos, gráficas (tendencia/acumulado/distribución/top), detalle global por categoría, equipo, departamento y turno, cotejo de cuenta litros vs salidas e **informes independientes por turno** (resumen, tendencia, distribución, detalle diario, lecturas y cargas).
+- **Aceites:** genera un reporte moderno en PDF con portada, índice, resumen global, comparativo **Motor Shell vs Hidráulico Shell**, gráficas y, a continuación, **un informe separado por producto**: KPIs, tendencia de consumo real, distribución (motivo/equipo/compartimento), entradas, cotejo diario y detalle de despachos.
 - Ubicación: botones **“Reporte PDF diésel”** en *Reportes* y *Bitácora*, y **“Reporte PDF aceites”** en *Aceites* y *Bitácora aceites*. Selecciona el periodo deseado antes de generar. Si el navegador bloquea ventanas emergentes, permítelas para abrir el reporte.
 
 ### Lógica de la boba
