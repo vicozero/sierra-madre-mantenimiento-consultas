@@ -172,6 +172,7 @@ window.Store = (function () {
     if (r.tipo === 'boba') tipo = 'boba';
     else if (r.tipo === 'aceite') tipo = 'aceite';
     else if (r.tipo === 'aceite_boba' || r.tipo === 'aceiteBoba' || r.tipo === 'aceite-meter') tipo = 'aceite_boba';
+    else if (r.tipo === 'aceite_entrada' || r.tipo === 'aceiteEntrada' || r.tipo === 'entrada_aceite') tipo = 'aceite_entrada';
 
     const base = {
       id: txt(r.id, 40),
@@ -217,6 +218,20 @@ window.Store = (function () {
         final: final == null ? null : round(final, 3),
         litros: litros == null ? null : round(litros, 3),
         operador: txt(r.operador, 80)
+      });
+    }
+
+    if (tipo === 'aceite_entrada') {
+      const producto = canonProductoAceite(r.producto || r.tipoAceite || r.aceite);
+      if (!producto) return null;
+      const litros = num(r.litros, null);
+      if (!(litros > 0)) return null;
+      return Object.assign(base, {
+        producto: producto,
+        litros: round(litros, 3),
+        concepto: txt(r.concepto, 40) || 'Llegada de aceite',
+        proveedor: txt(r.proveedor, 80),
+        folio: txt(r.folio, 40)
       });
     }
 
@@ -279,6 +294,7 @@ window.Store = (function () {
   function naturalKey(r) {
     if (r.tipo === 'boba') return 'b|' + r.fecha + '|' + r.turno;
     if (r.tipo === 'aceite_boba') return 'ab|' + r.fecha + '|' + (r.producto || '');
+    if (r.tipo === 'aceite_entrada') return ['ae', r.fecha, r.producto || '', r.concepto || '', r.folio || '', r.litros].join('|');
     if (r.tipo === 'aceite') return ['a', r.fecha, r.equipo, r.tipoAceite || '', r.folio || ''].join('|');
     return ['c', r.fecha, r.turno, r.equipo, r.categoria, r.folio].join('|');
   }
@@ -560,6 +576,12 @@ window.Store = (function () {
   function getBoba() { return state.records.filter((r) => r.tipo === 'boba'); }
   function getAceiteDispatches() { return state.records.filter((r) => r.tipo === 'aceite'); }
   function getAceiteMeters() { return state.records.filter((r) => r.tipo === 'aceite_boba'); }
+  function getAceiteEntradas() { return state.records.filter((r) => r.tipo === 'aceite_entrada'); }
+  function aceiteEntradasFor(fecha, producto) {
+    const p = canonProductoAceite(producto);
+    const list = state.records.filter((r) => r.tipo === 'aceite_entrada' && r.fecha === fecha && canonProductoAceite(r.producto) === p);
+    return { list: list, total: list.reduce((a, b) => a + (Number(b.litros) || 0), 0) };
+  }
   function getState() { return state; }
   function isDemo() { return state.demo; }
   function isRemoteReady() { return isRemote(); }
@@ -609,9 +631,14 @@ window.Store = (function () {
     const salidas = state.records.filter((r) => r.tipo === 'aceite' && r.fecha === fecha && canonProductoAceite(r.tipoAceite) === p);
     const totalSalidas = salidas.reduce((a, b) => a + (Number(b.litros) || 0), 0);
     const totalCuenta = rec && rec.litros != null ? Number(rec.litros) : null;
+    const entradas = aceiteEntradasFor(fecha, p);
+    const totalEntradas = entradas.total;
+    // El contador mide el movimiento bruto; las entradas (llegadas o ajustes) no son consumo.
+    const consumo = totalCuenta == null ? null : totalCuenta - totalEntradas;
     return {
       fecha, producto: p, rec, salidas, totalSalidas,
-      totalCuenta, diff: totalCuenta == null ? null : totalCuenta - totalSalidas,
+      totalCuenta, movimiento: totalCuenta, totalEntradas, entradas: entradas.list, consumo,
+      diff: consumo == null ? null : consumo - totalSalidas,
       tieneDato: totalCuenta != null
     };
   }
@@ -992,7 +1019,7 @@ window.Store = (function () {
 
   /**
    * Importa registros (diésel y/o aceites).
-   * payload: { charges, boba, dispatches/aceites, meters/aceiteBoba }
+   * payload: { charges, boba, dispatches/aceites, meters/aceiteBoba, entradas }
    * mode 'replace': el periodo queda exactamente como el archivo.
    * mode 'merge':   se actualizan los renglones coincidentes y se agregan los nuevos.
    */
@@ -1003,7 +1030,8 @@ window.Store = (function () {
     const boba = (p.boba || []).map((r) => normalizeRecord(Object.assign({}, r, { tipo: 'boba' }))).filter(Boolean);
     const aceites = (p.dispatches || p.aceites || []).map((r) => normalizeRecord(Object.assign({}, r, { tipo: 'aceite' }))).filter(Boolean);
     const aceiteBoba = (p.meters || p.aceiteBoba || []).map((r) => normalizeRecord(Object.assign({}, r, { tipo: 'aceite_boba' }))).filter(Boolean);
-    const incoming = charges.concat(boba).concat(aceites).concat(aceiteBoba);
+    const entradas = (p.entradas || p.aceiteEntradas || []).map((r) => normalizeRecord(Object.assign({}, r, { tipo: 'aceite_entrada', producto: r.producto || r.tipoAceite || r.aceite }))).filter(Boolean);
+    const incoming = charges.concat(boba).concat(aceites).concat(aceiteBoba).concat(entradas);
     if (!incoming.length) throw new Error('El archivo no contiene filas válidas para importar.');
 
     const replaceAll = mode === 'replace';
@@ -1056,6 +1084,7 @@ window.Store = (function () {
       boba: boba.length,
       aceites: aceites.length,
       aceiteBoba: aceiteBoba.length,
+      aceiteEntradas: entradas.length,
       periods: periods,
       mode: replaceAll ? 'replace' : 'merge'
     };
@@ -1249,6 +1278,8 @@ window.Store = (function () {
     getBoba: getBoba,
     getAceiteDispatches: getAceiteDispatches,
     getAceiteMeters: getAceiteMeters,
+    getAceiteEntradas: getAceiteEntradas,
+    aceiteEntradasFor: aceiteEntradasFor,
     bobaFor: bobaFor,
     bobaDayInfo: bobaDayInfo,
     aceiteBobaFor: aceiteBobaFor,

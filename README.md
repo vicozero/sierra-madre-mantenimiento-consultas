@@ -20,15 +20,15 @@ GitHub, que hace de base de datos y de historial de cambios.
 | **Cuenta litros** | Historial y captura mensual de lecturas (por turno o por día), inicial/final/litros y diferencias. |
 | **Cargas** | Alta, edición, borrado y filtros del concentrado por equipo: categoría, horómetro, litros, departamento, operador, responsable, folio y ubicación. |
 | **Bitácora** | Concentrado en formato de reporte: importación/exportación del mismo Excel (.xlsx), CSV, impresión y cotejo de contadores vs salidas. |
-| **Bitácora aceites** | Cotejo independiente de contadores de aceites (por producto) vs salidas por día. |
+| **Bitácora aceites** | Cotejo independiente de contadores de aceites (por producto) vs salidas por día, descontando entradas y ajustes. |
 | **Reportes** | KPIs del periodo, gráficas, detalle por día, análisis avanzado e **importación/exportación** (.xlsx/CSV) y **reporte PDF avanzado de diésel**. |
-| **Aceites** | Captura diaria de salidas y cuenta litros (Motor Shell, Hidráulico Shell), dashboard/gráficos, importación/exportación y **reporte PDF avanzado de aceites**. |
+| **Aceites** | Captura diaria de **entradas** (llegadas/ajustes), salidas y cuenta litros (Motor Shell, Hidráulico Shell), dashboard/gráficos, importación/exportación y **reporte PDF avanzado de aceites**. |
 | **Usuarios** | Módulo inicial local de administración de accesos/usuarios. |
 | **Ajustes** | Empresa, catálogos, tope del contador, conexión con GitHub, datos de ejemplo y borrado local. |
 
 ### Reportes PDF avanzados (nuevo)
 - **Diésel:** genera un reporte moderno en PDF (vía impresión del navegador) con portada, KPIs ejecutivos, gráficas (tendencia/acumulado/distribución/top), detalle diario, detalle por categoría y cotejo de cuenta litros vs salidas.
-- **Aceites:** genera un reporte moderno en PDF con KPIs, tendencia, distribución (producto/motivo/equipo/compartimento), detalle por producto, cotejo de cuenta litros por producto y detalle de salidas.
+- **Aceites:** genera un reporte moderno en PDF con KPIs, tendencia, distribución (producto/motivo/equipo/compartimento), detalle por producto, entradas, cotejo de consumo real por producto y detalle de salidas.
 - Ubicación: botones **“Reporte PDF diésel”** en *Reportes* y *Bitácora*, y **“Reporte PDF aceites”** en *Aceites* y *Bitácora aceites*. Selecciona el periodo deseado antes de generar. Si el navegador bloquea ventanas emergentes, permítelas para abrir el reporte.
 
 ### Lógica de la boba
@@ -59,8 +59,8 @@ Navegador (app en GitHub Pages o incrustada en Google Sites)
                        ├── config.json          (empresa, catálogos, tope del contador)
                        └── data/
                            ├── index.json       (lista de periodos disponibles)
-                           ├── 2026-11.json     (cargas, bobas y aceites de noviembre 2026)
-                           └── 2026-12.json     (cargas, bobas y aceites de diciembre 2026)
+                           ├── 2026-11.json     (cargas, bobas, aceites y entradas de noviembre 2026)
+                           └── 2026-12.json     (cargas, bobas, aceites y entradas de diciembre 2026)
 ```
 
 - Los datos se guardan **un archivo por mes** para que el repositorio crezca sin problemas.
@@ -330,6 +330,34 @@ Notas de lectura:
 El lector/escritor de Excel es propio (`assets/xlsx.js`) y usa `fflate` para comprimir el ZIP;
 no depende de CDN ni de librerías externas en tiempo de ejecución.
 
+### Excel de aceites (Motor e Hidráulico)
+
+**Aceites → Exportar Excel de aceites** genera un libro separado por producto:
+
+| Hoja | Contenido |
+| --- | --- |
+| **SALIDAS MOTOR** / **SALIDAS HIDRAULICO** | Salidas/despachos del producto con el formato de reporte de aceites. |
+| **CUENTA LITROS MOTOR** / **CUENTA LITROS HIDRAULICO** | Fecha, lectura inicial, lectura final, **movimiento**, **entradas**, **consumo real**, salidas y diferencia. |
+| **ENTRADAS MOTOR** / **ENTRADAS HIDRAULICO** | Llegadas y ajustes de contador: fecha, producto, concepto, litros, proveedor, folio y notas. |
+
+La importación reconoce estas hojas y también el formato combinado antiguo. En la vista previa
+se muestran salidas, lecturas y entradas encontradas, con su desglose por producto.
+
+#### Entradas y ajustes del contador
+
+Cuando llegue aceite (o cuando el contador se mueva por un ajuste que no es consumo), regístralo
+en **Aceites → Captura diaria → Entradas de aceite**. La contabilidad queda así:
+
+```
+movimiento contador = lectura final − lectura inicial
+consumo real        = movimiento contador − entradas del mismo día y producto
+diferencia          = consumo real − salidas del día
+```
+
+Ejemplo: inicial `7545`, final `8045` → movimiento `500 L`. Si registras una entrada de `400 L`
+y tus salidas son `100 L`, entonces consumo real = `100 L` y diferencia = `0`. El contador se
+sigue usando con normalidad (no se reinicia ni se corrige la lectura final).
+
 ---
 
 ## 7. Reportes
@@ -361,7 +389,7 @@ no depende de CDN ni de librerías externas en tiempo de ejecución.
 ├── config.json             Empresa, catálogos, tope del cuenta-litros
 ├── data/                   (se lee al abrir; se publica con token o subiendo el ZIP)
 │   ├── index.json          Periodos disponibles
-│   └── 2026-11.json        Cargas, bobas y aceites del mes
+│   └── 2026-11.json        Cargas, bobas, aceites y entradas del mes
 ├── robots.txt              Evita indexación del sitio en buscadores
 └── .nojekyll               Desactiva Jekyll en GitHub Pages
 ```

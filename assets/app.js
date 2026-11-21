@@ -188,6 +188,7 @@
     importName: '',
     editAceiteId: null,
     draftAceite: null,
+    draftEntrada: null,
     aceiteImportPreview: null,
     aceiteImportName: '',
     editUserId: null,
@@ -206,12 +207,13 @@
     ensureDraft();
     ensureDraftUser();
     ensureDraftAceite();
+    ensureDraftEntrada();
     updateThemeIcon();
     render();
     Store.onChange(updateStatus);
     try { await Store.init(); } catch (e) { console.warn(e); }
     ui.ready = true;
-    ensureDraft(); ensureDraftUser(); ensureDraftAceite();
+    ensureDraft(); ensureDraftUser(); ensureDraftAceite(); ensureDraftEntrada();
     render();
   }
 
@@ -251,6 +253,7 @@
       else if (form.id === 'cargaForm') saveCargaForm();
       else if (form.dataset.aceiteMeter) saveAceiteMeter(form);
       else if (form.id === 'aceiteForm') saveAceiteForm();
+      else if (form.id === 'aceiteEntradaForm') saveAceiteEntradaForm();
       else if (form.id === 'userForm') saveUserFromForm();
       else if (form.id === 'cfgForm') saveCfgForm();
       else if (form.id === 'remoteForm') saveRemoteForm();
@@ -795,29 +798,37 @@
     const canon = (v) => Store.canonProductoAceite ? Store.canonProductoAceite(v) : v;
     const allMeters = Store.getAceiteMeters().filter(r => r.fecha >= desde && r.fecha <= hasta && r.litros != null);
     const allDispatches = Store.getAceiteDispatches().filter(r => r.fecha >= desde && r.fecha <= hasta);
+    const allEntradas = (Store.getAceiteEntradas ? Store.getAceiteEntradas() : []).filter(r => r.fecha >= desde && r.fecha <= hasta);
     const periodo = esc(fmtDate(desde)) + ' a ' + esc(fmtDate(hasta));
 
     const products = ACEITE_PRODUCTOS.map((prod) => {
       const meters = allMeters.filter(r => canon(r.producto) === prod);
       const dispatches = allDispatches.filter(r => canon(r.tipoAceite) === prod);
+      const entradas = allEntradas.filter(r => canon(r.producto) === prod);
       const recByDate = new Map();
       meters.forEach(r => { if (r.litros != null) recByDate.set(r.fecha, r); });
       const salByDate = new Map();
       dispatches.forEach(r => { const arr = salByDate.get(r.fecha) || []; arr.push(r); salByDate.set(r.fecha, arr); });
+      const entByDate = new Map();
+      entradas.forEach(r => { entByDate.set(r.fecha, (entByDate.get(r.fecha) || 0) + (Number(r.litros) || 0)); });
 
       let rows = '', d = desde, n = 0;
       while (d <= hasta && n < 400) {
         const rec = recByDate.get(d) || null;
         const salidasArr = salByDate.get(d) || [];
-        if (rec || salidasArr.length) {
+        const entradasDia = entByDate.get(d) || 0;
+        if (rec || salidasArr.length || entradasDia) {
           const salidas = sum(salidasArr, r => r.litros);
-          const contador = rec && rec.litros != null ? Number(rec.litros) : null;
-          const diff = contador == null ? null : contador - salidas;
-          const estado = contador == null ? badge('Sin contador', 'warn') : (Math.abs(diff) <= 1 ? badge('Cuadra', 'ok') : badge('Diferencia', 'bad'));
+          const movimiento = rec && rec.litros != null ? Number(rec.litros) : null;
+          const consumo = movimiento == null ? null : movimiento - entradasDia;
+          const diff = consumo == null ? null : consumo - salidas;
+          const estado = movimiento == null ? badge('Sin contador', 'warn') : (Math.abs(diff) <= 1 ? badge('Cuadra', 'ok') : badge('Diferencia', 'bad'));
           rows += '<tr><td class="mono">' + esc(fmtShort(d)) + '</td>' +
             '<td class="num">' + (rec && rec.inicial != null ? nf(rec.inicial, 2) : '—') + '</td>' +
             '<td class="num">' + (rec && rec.final != null ? nf(rec.final, 2) : '—') + '</td>' +
-            '<td class="num">' + (contador == null ? '—' : nf(contador, 2)) + '</td>' +
+            '<td class="num">' + (movimiento == null ? '—' : nf(movimiento, 2)) + '</td>' +
+            '<td class="num">' + nf(entradasDia, 2) + '</td>' +
+            '<td class="num"><strong>' + (consumo == null ? '—' : nf(consumo, 2)) + '</strong></td>' +
             '<td class="num">' + nf(salidas, 2) + '</td>' +
             '<td class="num"><strong>' + (diff == null ? '—' : ((diff > 0 ? '+' : '') + nf(diff, 2))) + '</strong></td>' +
             '<td>' + estado + '</td></tr>';
@@ -825,30 +836,36 @@
         d = addDays(d, 1); n++;
       }
       const totalContador = sum(meters, r => r.litros);
+      const totalEntradas = sum(entradas, r => r.litros);
+      const totalConsumo = totalContador - totalEntradas;
       const totalSalidas = sum(dispatches, r => r.litros);
-      const totalDiff = totalContador - totalSalidas;
+      const totalDiff = totalConsumo - totalSalidas;
       const detalle = dispatches.slice().sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.equipo || '').localeCompare(b.equipo || ''))
         .map(r => '<tr><td class="mono">' + esc(fmtShort(r.fecha)) + '</td><td><strong>' + esc(r.equipo) + '</strong></td><td>' + esc(r.compartimento || '—') + '</td><td>' + esc(r.motivo || '—') + '</td><td class="num">' + nf(r.litros, 2) + '</td><td class="mono">' + esc(r.folio || '—') + '</td></tr>').join('');
-      return { prod, meters, dispatches, rows, totalContador, totalSalidas, totalDiff, detalle };
+      return { prod, meters, dispatches, entradas, rows, totalContador, totalEntradas, totalConsumo, totalSalidas, totalDiff, detalle };
     });
 
     const totalContador = sum(products, p => p.totalContador);
+    const totalEntradas = sum(products, p => p.totalEntradas);
+    const totalConsumo = totalContador - totalEntradas;
     const totalSalidas = sum(products, p => p.totalSalidas);
-    const totalDiff = totalContador - totalSalidas;
-    const hayDatos = allMeters.length > 0 || allDispatches.length > 0;
+    const totalDiff = totalConsumo - totalSalidas;
+    const hayDatos = allMeters.length > 0 || allDispatches.length > 0 || allEntradas.length > 0;
 
-    let html = '<section class="card"><div class="card-head"><div><h2>Resumen general de aceites</h2><p>Comparativa entre productos · ' + periodo + '</p></div></div>' +
+    let html = '<section class="card"><div class="card-head"><div><h2>Resumen general de aceites</h2><p>Entradas y consumo real por producto · ' + periodo + '</p></div></div>' +
       '<div class="kpis">' +
-        kpi('Total contador', nf(totalContador, 2) + ' L', allMeters.length + ' lecturas', '') +
+        kpi('Movimiento contador', nf(totalContador, 2) + ' L', allMeters.length + ' lecturas', '') +
+        kpi('Entradas', nf(totalEntradas, 2) + ' L', allEntradas.length + ' llegadas/ajustes', '') +
+        kpi('Consumo real', nf(totalConsumo, 2) + ' L', 'movimiento - entradas', '') +
         kpi('Total salidas', nf(totalSalidas, 2) + ' L', allDispatches.length + ' salidas', '') +
-        kpi('Diferencia global', (totalDiff > 0 ? '+' : '') + nf(totalDiff, 2) + ' L', 'contador - salidas', Math.abs(totalDiff) > 1 ? 'bad' : 'good') +
+        kpi('Diferencia global', (totalDiff > 0 ? '+' : '') + nf(totalDiff, 2) + ' L', 'consumo real - salidas', Math.abs(totalDiff) > 1 ? 'bad' : 'good') +
       '</div>' +
-      '<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Producto</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th><th class="num">Lecturas</th><th>Estado</th></tr></thead><tbody>' +
+      '<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Producto</th><th class="num">Movimiento (L)</th><th class="num">Entradas (L)</th><th class="num">Consumo real (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th><th class="num">Lecturas</th><th>Estado</th></tr></thead><tbody>' +
       products.map(p => {
         const estado = p.meters.length ? (Math.abs(p.totalDiff) <= 1 ? badge('Cuadra', 'ok') : badge('Diferencia', 'bad')) : badge('Sin lecturas', 'warn');
-        return '<tr><td><strong>' + esc(p.prod) + '</strong></td><td class="num">' + nf(p.totalContador, 2) + '</td><td class="num">' + nf(p.totalSalidas, 2) + '</td><td class="num"><strong>' + ((p.totalDiff > 0 ? '+' : '') + nf(p.totalDiff, 2)) + '</strong></td><td class="num">' + p.meters.length + '</td><td>' + estado + '</td></tr>';
+        return '<tr><td><strong>' + esc(p.prod) + '</strong></td><td class="num">' + nf(p.totalContador, 2) + '</td><td class="num">' + nf(p.totalEntradas, 2) + '</td><td class="num"><strong>' + nf(p.totalConsumo, 2) + '</strong></td><td class="num">' + nf(p.totalSalidas, 2) + '</td><td class="num"><strong>' + ((p.totalDiff > 0 ? '+' : '') + nf(p.totalDiff, 2)) + '</strong></td><td class="num">' + p.meters.length + '</td><td>' + estado + '</td></tr>';
       }).join('') +
-      '</tbody><tfoot><tr><td><strong>TOTAL</strong></td><td class="num"><strong>' + nf(totalContador, 2) + '</strong></td><td class="num"><strong>' + nf(totalSalidas, 2) + '</strong></td><td class="num"><strong>' + ((totalDiff > 0 ? '+' : '') + nf(totalDiff, 2)) + '</strong></td><td class="num"><strong>' + allMeters.length + '</strong></td><td></td></tr></tfoot></table></div>' +
+      '</tbody><tfoot><tr><td><strong>TOTAL</strong></td><td class="num"><strong>' + nf(totalContador, 2) + '</strong></td><td class="num"><strong>' + nf(totalEntradas, 2) + '</strong></td><td class="num"><strong>' + nf(totalConsumo, 2) + '</strong></td><td class="num"><strong>' + nf(totalSalidas, 2) + '</strong></td><td class="num"><strong>' + ((totalDiff > 0 ? '+' : '') + nf(totalDiff, 2)) + '</strong></td><td class="num"><strong>' + allMeters.length + '</strong></td><td></td></tr></tfoot></table></div>' +
       '</section>';
 
     if (!hayDatos) {
@@ -857,16 +874,18 @@
 
     products.forEach((p) => {
       const estado = p.meters.length ? (Math.abs(p.totalDiff) <= 1 ? badge('Cuadra', 'ok') : badge('Diferencia', 'bad')) : badge('Sin lecturas', 'warn');
-      html += '<section class="card"><div class="card-head"><div><h2>' + esc(p.prod) + ' · cotejo contador vs salidas</h2><p>' + periodo + '</p></div>' +
+      html += '<section class="card"><div class="card-head"><div><h2>' + esc(p.prod) + ' · cotejo consumo real vs salidas</h2><p>' + periodo + '</p></div>' +
         '<div class="row"><button class="btn ghost sm" type="button" data-act="export-bitacora-aceites-producto" data-producto="' + esc(p.prod) + '" title="Exportar solo ' + esc(p.prod) + ' a Excel">Exportar Excel de ' + esc(p.prod) + '</button>' + estado + '</div></div>' +
         '<div class="kpis">' +
-          kpi('Contador', nf(p.totalContador, 2) + ' L', p.meters.length + ' lecturas', '') +
+          kpi('Movimiento contador', nf(p.totalContador, 2) + ' L', p.meters.length + ' lecturas', '') +
+          kpi('Entradas', nf(p.totalEntradas, 2) + ' L', p.entradas.length + ' llegadas/ajustes', '') +
+          kpi('Consumo real', nf(p.totalConsumo, 2) + ' L', 'movimiento - entradas', '') +
           kpi('Salidas', nf(p.totalSalidas, 2) + ' L', p.dispatches.length + ' salidas', '') +
-          kpi('Diferencia', (p.totalDiff > 0 ? '+' : '') + nf(p.totalDiff, 2) + ' L', 'contador - salidas', Math.abs(p.totalDiff) <= 1 ? 'good' : 'bad') +
+          kpi('Diferencia', (p.totalDiff > 0 ? '+' : '') + nf(p.totalDiff, 2) + ' L', 'consumo real - salidas', Math.abs(p.totalDiff) <= 1 ? 'good' : 'bad') +
         '</div>' +
         (p.rows
-          ? '<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Fecha</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th><th>Estado</th></tr></thead><tbody>' + p.rows + '</tbody>' +
-            '<tfoot><tr><td><strong>TOTAL</strong></td><td></td><td></td><td class="num"><strong>' + nf(p.totalContador, 2) + '</strong></td><td class="num"><strong>' + nf(p.totalSalidas, 2) + '</strong></td><td class="num"><strong>' + ((p.totalDiff > 0 ? '+' : '') + nf(p.totalDiff, 2)) + '</strong></td><td></td></tr></tfoot></table></div>'
+          ? '<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Fecha</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Movimiento (L)</th><th class="num">Entradas (L)</th><th class="num">Consumo real (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th><th>Estado</th></tr></thead><tbody>' + p.rows + '</tbody>' +
+            '<tfoot><tr><td><strong>TOTAL</strong></td><td></td><td></td><td class="num"><strong>' + nf(p.totalContador, 2) + '</strong></td><td class="num"><strong>' + nf(p.totalEntradas, 2) + '</strong></td><td class="num"><strong>' + nf(p.totalConsumo, 2) + '</strong></td><td class="num"><strong>' + nf(p.totalSalidas, 2) + '</strong></td><td class="num"><strong>' + ((p.totalDiff > 0 ? '+' : '') + nf(p.totalDiff, 2)) + '</strong></td><td></td></tr></tfoot></table></div>'
           : '<div class="empty" style="margin-top:12px"><h3>Sin cotejo en el periodo</h3><p>No hay lecturas ni salidas registradas para ' + esc(p.prod) + '.</p></div>') +
         '<div class="divider"></div><h3 style="margin:10px 0 6px">Detalle de salidas · ' + esc(p.prod) + '</h3>' +
         (p.detalle
@@ -1146,6 +1165,11 @@
       if (!confirm('¿Eliminar la cuenta litros de ' + (rec.producto||'producto') + ' del ' + fmtDate(rec.fecha) + '?')) return;
       Store.remove(rec.id); toast('Cuenta litros eliminada.','ok'); render(); return;
     }
+    if (act === 'del-aceite-entrada') {
+      const rec = Store.getRecords().find((r)=>r.id===btn.dataset.id); if (!rec) return;
+      if (!confirm('¿Eliminar la entrada de ' + nf(rec.litros,1) + ' L de ' + (rec.producto||'aceite') + ' del ' + fmtDate(rec.fecha) + '?')) return;
+      Store.remove(rec.id); toast('Entrada eliminada.','ok'); render(); return;
+    }
     if (act === 'export-aceites-xlsx') { exportAceitesXlsx(); return; }
     if (act === 'export-bitacora-aceites-xlsx') { exportAceitesXlsxRange(ui.bitacoraAceites.desde, ui.bitacoraAceites.hasta); return; }
     if (act === 'export-bitacora-aceites-producto') { exportAceitesXlsxRange(ui.bitacoraAceites.desde, ui.bitacoraAceites.hasta, btn.dataset.producto); return; }
@@ -1160,7 +1184,7 @@
         const res = Store.importData(ui.aceiteImportPreview, mode);
         ui.aceiteImportPreview = null; ui.aceiteImportName = '';
         if (meta.desde && meta.hasta) { ui.aceites.desde = meta.desde; ui.aceites.hasta = meta.hasta; }
-        toast('Importado: ' + (res.aceites||0) + ' salidas y ' + (res.aceiteBoba||0) + ' cuenta litros (' + (res.mode==='replace'?'reemplazar':'combinar') + ').', 'ok');
+        toast('Importado: ' + (res.aceites||0) + ' salidas, ' + (res.aceiteBoba||0) + ' cuenta litros y ' + (res.aceiteEntradas||0) + ' entradas (' + (res.mode==='replace'?'reemplazar':'combinar') + ').', 'ok');
         render();
       } catch (err) { toast(err.message || 'No se pudo importar', 'err'); }
       return;
@@ -1189,6 +1213,7 @@
     if (t.closest && t.closest('[data-boba-day]')) { updateBobaDayCalc(t.closest('[data-boba-day]')); return; }
     if (t.closest && t.closest('#userForm')) { ensureDraftUser(); if (t.name === 'activo') ui.draftUser.activo = t.checked; else if (t.name) ui.draftUser[t.name] = t.value; return; }
     if (t.closest && t.closest('#aceiteForm')) { ensureDraftAceite(); if (t.name) ui.draftAceite[t.name] = t.value; return; }
+    if (t.closest && t.closest('#aceiteEntradaForm')) { ensureDraftEntrada(); if (t.name) ui.draftEntrada[t.name] = t.value; return; }
     if (t.closest && t.closest('[data-aceite-meter]')) { updateAceiteMeterCalc(t.closest('[data-aceite-meter]')); return; }
   }
 
@@ -1260,14 +1285,18 @@
     const ini = parseDecimal(form.elements.inicial.value);
     const fin = parseDecimal(form.elements.final.value);
     const salidas = Number(form.dataset.salidas) || 0;
+    const entradas = Number(form.dataset.entradas) || 0;
     const key = String(form.dataset.producto || '').indexOf('Motor') !== -1 ? 'M' : 'H';
     const tope = cfg.contadorMaxAceites || cfg.contadorMax;
     let cuenta = null; if (ini != null && fin != null) cuenta = Store.bobaLitros(ini, fin, tope);
-    const litEl = $('#lit' + key), difEl = $('#dif' + key);
+    const consumo = cuenta == null ? null : cuenta - entradas;
+    const litEl = $('#lit' + key), entEl = $('#ent' + key), conEl = $('#con' + key), difEl = $('#dif' + key);
     if (litEl) litEl.textContent = cuenta == null ? '—' : nf(cuenta, 2) + ' L';
+    if (entEl) entEl.textContent = nf(entradas, 2) + ' L';
+    if (conEl) conEl.textContent = consumo == null ? '—' : nf(consumo, 2) + ' L';
     if (difEl) {
-      if (cuenta == null) { difEl.textContent = '—'; difEl.className = ''; }
-      else { const d = cuenta - salidas; difEl.textContent = (d > 0 ? '+' : '') + nf(d, 1) + ' L'; difEl.className = Math.abs(d) <= 1 ? 'pos' : 'neg'; }
+      if (consumo == null) { difEl.textContent = '—'; difEl.className = ''; }
+      else { const d = consumo - salidas; difEl.textContent = (d > 0 ? '+' : '') + nf(d, 1) + ' L'; difEl.className = Math.abs(d) <= 1 ? 'pos' : 'neg'; }
     }
   }
 
@@ -1329,6 +1358,32 @@
       toast(fin == null ? 'Lectura inicial de ' + producto + ' guardada.' : 'Cuenta litros de ' + producto + ' guardada.', 'ok');
       render();
     } catch (err) { toast(err.message || 'No se pudo guardar la cuenta litros.', 'err'); }
+  }
+
+  function saveAceiteEntradaForm() {
+    const form = $('#aceiteEntradaForm'); if (!form) return;
+    const e = form.elements;
+    const fecha = e.fecha ? e.fecha.value : '';
+    const producto = e.producto ? e.producto.value : '';
+    const litros = parseDecimal(e.litros ? e.litros.value : '');
+    if (!fecha) { toast('Captura la fecha de la entrada.', 'err'); if (e.fecha) e.fecha.focus(); return; }
+    if (!producto) { toast('Selecciona el producto.', 'err'); if (e.producto) e.producto.focus(); return; }
+    if (litros == null || !(litros > 0)) { toast('Los litros de entrada deben ser mayores que cero.', 'err'); if (e.litros) e.litros.focus(); return; }
+    try {
+      Store.save({
+        id: e.id ? e.id.value : '',
+        tipo: 'aceite_entrada',
+        fecha, producto, litros,
+        concepto: e.concepto ? e.concepto.value : 'Llegada de aceite',
+        proveedor: e.proveedor ? e.proveedor.value : '',
+        folio: e.folio ? e.folio.value : '',
+        notas: e.notas ? e.notas.value : ''
+      });
+      toast('Entrada registrada. El contador sigue con su lectura normal.', 'ok');
+      ui.aceites.fecha = fecha;
+      ui.draftEntrada = blankEntrada(fecha);
+      render();
+    } catch (err) { toast(err.message || 'No se pudo guardar la entrada.', 'err'); }
   }
 
   function saveAceiteForm() {
@@ -1424,6 +1479,10 @@
   function blankAceite(fecha) {
     return { fecha: fecha || ui.aceites.fecha || todayISO(), equipo: '', descripcion: '', horometro: '', tipoAceite: 'Hidráulico Shell', compartimento: 'Sistema hidráulico', motivo: '', litros: '', precio: '', importe: '', mecanico: '', responsable: '', folio: '', notas: '' };
   }
+  function blankEntrada(fecha) {
+    return { fecha: fecha || ui.aceites.fecha || todayISO(), producto: 'Motor Shell', concepto: 'Llegada de aceite', litros: '', proveedor: '', folio: '', notas: '' };
+  }
+  function ensureDraftEntrada(fecha) { if (!ui.draftEntrada) ui.draftEntrada = blankEntrada(fecha); return ui.draftEntrada; }
   function aceiteDispatchesOf(fecha) { return Store.getAceiteDispatches().filter((r)=>r.fecha===fecha); }
   function aceiteDispatchesRange(desde, hasta) { return Store.getAceiteDispatches().filter((r)=>r.fecha>=desde && r.fecha<=hasta); }
   function aceitePrevFinal(producto, fecha) {
@@ -1434,11 +1493,13 @@
   }
 
   function aceiteMeterCard(producto, fecha) {
-    const rec = Store.aceiteBobaFor ? Store.aceiteBobaFor(fecha, producto) : Store.getAceiteMeters().find((r)=>r.fecha===fecha && r.producto===producto);
-    const salidas = Store.getAceiteDispatches().filter((r)=>r.fecha===fecha && (Store.canonProductoAceite?Store.canonProductoAceite(r.tipoAceite):r.tipoAceite)===producto);
-    const totalSalidas = sum(salidas, (r)=>r.litros);
-    const litros = rec && rec.litros != null ? rec.litros : null;
-    const diff = litros == null ? null : litros - totalSalidas;
+    const info = Store.aceiteDayInfo ? Store.aceiteDayInfo(fecha, producto) : null;
+    const rec = info ? info.rec : (Store.aceiteBobaFor ? Store.aceiteBobaFor(fecha, producto) : Store.getAceiteMeters().find((r)=>r.fecha===fecha && r.producto===producto));
+    const totalSalidas = info ? info.totalSalidas : sum(Store.getAceiteDispatches().filter((r)=>r.fecha===fecha && (Store.canonProductoAceite?Store.canonProductoAceite(r.tipoAceite):r.tipoAceite)===producto), (r)=>r.litros);
+    const litros = info ? info.totalCuenta : (rec && rec.litros != null ? rec.litros : null);
+    const totalEntradas = info ? (info.totalEntradas || 0) : 0;
+    const consumo = info ? info.consumo : (litros == null ? null : litros - totalEntradas);
+    const diff = info ? info.diff : (consumo == null ? null : consumo - totalSalidas);
     const state = !rec ? badge('Sin lectura', 'warn') : rec.litros == null && rec.inicial != null ? badge('En curso', '') : badge('Registrado', 'ok');
     const key = producto.indexOf('Motor')!==-1 ? 'M' : 'H';
     const prev = aceitePrevFinal(producto, fecha);
@@ -1446,7 +1507,7 @@
     return '' +
       '<article class="shift' + (rec ? ' done' : '') + '">' +
         '<header class="shift-head"><div><h3>Cuenta litros · ' + esc(producto) + '</h3><p>Lectura de despacho diario</p></div>' + state + '</header>' +
-        '<form data-aceite-meter="1" data-producto="' + esc(producto) + '" data-fecha="' + esc(fecha) + '" data-salidas="' + totalSalidas + '" novalidate>' +
+        '<form data-aceite-meter="1" data-producto="' + esc(producto) + '" data-fecha="' + esc(fecha) + '" data-salidas="' + totalSalidas + '" data-entradas="' + totalEntradas + '" novalidate>' +
           (rec ? '<input type="hidden" name="id" value="' + esc(rec.id) + '">' : '') +
           '<div class="grid cols-2">' +
             '<div class="field"><label for="ini' + key + '">Lectura inicial</label><input id="ini' + key + '" name="inicial" type="number" step="any" inputmode="decimal" min="0" value="' + esc(iniVal) + '" placeholder="Ej. 1000">' +
@@ -1454,11 +1515,14 @@
             '<div class="field"><label for="fin' + key + '">Lectura final</label><input id="fin' + key + '" name="final" type="number" step="any" inputmode="decimal" min="0" value="' + (rec && rec.final != null ? esc(rec.final) : '') + '" placeholder="Ej. 1050"><span class="hint">Se calcula automáticamente</span></div>' +
           '</div>' +
           '<div class="calc">' +
-            '<div class="calc-item"><span class="lbl">Litros (cuenta litros)</span><strong id="lit' + key + '">' + (litros == null ? '—' : nf(litros, 2) + ' L') + '</strong></div>' +
+            '<div class="calc-item"><span class="lbl">Movimiento contador</span><strong id="lit' + key + '">' + (litros == null ? '—' : nf(litros, 2) + ' L') + '</strong></div>' +
+            '<div class="calc-item"><span class="lbl">Entradas del día</span><strong id="ent' + key + '">' + nf(totalEntradas, 2) + ' L</strong></div>' +
+            '<div class="calc-item"><span class="lbl">Consumo real</span><strong id="con' + key + '">' + (consumo == null ? '—' : nf(consumo, 2) + ' L') + '</strong></div>' +
             '<div class="calc-item"><span class="lbl">Salidas del día</span><strong>' + nf(totalSalidas,1) + ' L</strong></div>' +
             '<div class="calc-item"><span class="lbl">Diferencia</span><strong id="dif' + key + '" class="' + (diff == null ? '' : Math.abs(diff) <= 1 ? 'pos' : 'neg') + '">' + (diff == null ? '—' : (diff > 0 ? '+' : '') + nf(diff,1) + ' L') + '</strong></div>' +
           '</div>' +
-          '<div class="field"><label for="notas' + key + '">Notas (opcional)</label><input id="notas' + key + '" name="notas" maxlength="240" value="' + esc(rec && rec.notas || '') + '" placeholder="Observaciones"></div>' +
+          '<p class="muted" style="font-size:11.5px;margin:8px 0 0">Consumo real = movimiento del contador − entradas. El contador se sigue usando con normalidad.</p>' +
+          '<div class="field" style="margin-top:10px"><label for="notas' + key + '">Notas (opcional)</label><input id="notas' + key + '" name="notas" maxlength="240" value="' + esc(rec && rec.notas || '') + '" placeholder="Observaciones"></div>' +
           '<div class="row end" style="margin-top:12px">' +
             (rec ? '<button class="btn ghost sm" type="button" data-act="del-aceite-meter" data-id="' + esc(rec.id) + '">Eliminar</button>' : '') +
             '<button class="btn" type="submit">' + (rec ? 'Actualizar' : 'Guardar') + '</button>' +
@@ -1472,9 +1536,12 @@
     const desde = ui.aceites.desde; const hasta = ui.aceites.hasta;
     const vista = ui.aceites.vista || 'captura';
     const d = ensureDraftAceite(fecha);
+    const de = ensureDraftEntrada(fecha);
     const editando = !!ui.editAceiteId;
     const dayDispatches = aceiteDispatchesOf(fecha).slice().sort((a,b)=>(a.equipo||'').localeCompare(b.equipo||''));
     const totalDia = sum(dayDispatches,(r)=>r.litros);
+    const dayEntradas = (Store.getAceiteEntradas ? Store.getAceiteEntradas() : []).filter((r)=>r.fecha===fecha).slice().sort((a,b)=>String(a.producto).localeCompare(String(b.producto)));
+    const totalEntradasDia = sum(dayEntradas,(r)=>r.litros);
     const rangeDispatches = aceiteDispatchesRange(desde,hasta).filter((r)=>{
       if (ui.aceites.producto) { const p = Store.canonProductoAceite?Store.canonProductoAceite(r.tipoAceite):r.tipoAceite; if (p !== ui.aceites.producto) return false; }
       if (ui.aceites.q) { const q=ui.aceites.q.toLowerCase(); const hay=[r.equipo,r.descripcion,r.mecanico,r.responsable,r.folio,r.motivo].join(' ').toLowerCase(); if(hay.indexOf(q)===-1) return false; }
@@ -1502,18 +1569,39 @@
     } else {
       body = '' +
         '<section class="card">' +
-          '<div class="card-head"><div><h2>Captura diaria de aceites</h2><p>Motor Shell e Hidráulico Shell · salidas y cuenta litros de despacho</p></div>' +
+          '<div class="card-head"><div><h2>Captura diaria de aceites</h2><p>Motor Shell e Hidráulico Shell · entradas, salidas y cuenta litros de despacho</p></div>' +
             '<div class="row"><button class="btn ghost sm" type="button" data-act="aceite-prev-day">←</button><input type="date" id="aceitesFecha" value="' + esc(fecha) + '"><button class="btn ghost sm" type="button" data-act="aceite-next-day">→</button><button class="btn ghost sm" type="button" data-act="aceite-today">Hoy</button></div></div>' +
           '<p class="muted" style="margin:-4px 0 12px">' + esc(fmtDate(fecha,true)) + ' · ' + esc(weekday(fecha)) + '</p>' +
-          notice('Registra las <strong>salidas/despachos</strong> del día y la <strong>cuenta litros</strong> de cada producto. Para análisis avanzado abre el <strong>Dashboard y gráficos</strong>.', '') +
+          notice('Registra las <strong>entradas</strong> (llegadas o ajustes de contador), las <strong>salidas/despachos</strong> y la <strong>cuenta litros</strong> de cada producto. El consumo real es <strong>movimiento del contador − entradas</strong>, así que tu contabilidad no se afecta.', '') +
         '</section>' +
 
         '<section class="card">' +
           '<div class="card-head"><div><h2>Cuenta litros de despacho (por producto)</h2><p>Lectura inicial y final de cada cuenta litros en el día</p></div></div>' +
           '<div class="day-grid">' + ACEITE_PRODUCTOS.map(p=>aceiteMeterCard(p, fecha)).join('') + '</div>' +
           '<div class="kpis" style="margin-top:12px">' +
-            ACEITE_PRODUCTOS.map(p=>{ const i=Store.aceiteDayInfo?Store.aceiteDayInfo(fecha,p):{totalCuenta:null,totalSalidas:sum(aceiteDispatchesOf(fecha).filter(r=>(Store.canonProductoAceite?Store.canonProductoAceite(r.tipoAceite):r.tipoAceite)===p),(r)=>r.litros),diff:null}; return kpi(p, (i.totalCuenta==null?'—':nf(i.totalCuenta,1)+' L'), 'Salidas: ' + nf(i.totalSalidas,1) + ' L · Dif: ' + (i.diff==null?'—':(i.diff>0?'+':'')+nf(i.diff,1)+' L'), i.totalCuenta!=null && Math.abs(i.diff||0)>1?'bad':''); }).join('') +
+            ACEITE_PRODUCTOS.map(p=>{ const i=Store.aceiteDayInfo?Store.aceiteDayInfo(fecha,p):{totalCuenta:null,totalEntradas:0,consumo:null,totalSalidas:sum(aceiteDispatchesOf(fecha).filter(r=>(Store.canonProductoAceite?Store.canonProductoAceite(r.tipoAceite):r.tipoAceite)===p),(r)=>r.litros),diff:null}; return kpi(p, (i.consumo==null?'—':nf(i.consumo,1)+' L'), 'Mov: ' + (i.totalCuenta==null?'—':nf(i.totalCuenta,1)+' L') + ' · Ent: ' + nf(i.totalEntradas||0,1) + ' L · Sal: ' + nf(i.totalSalidas,1) + ' L · Dif: ' + (i.diff==null?'—':(i.diff>0?'+':'')+nf(i.diff,1)+' L'), i.consumo!=null && Math.abs(i.diff||0)>1?'bad':''); }).join('') +
           '</div>' +
+        '</section>' +
+
+        '<section class="card">' +
+          '<div class="card-head"><div><h2>Entradas de aceite (llegadas o ajustes)</h2><p>Se restan del movimiento del contador para obtener el consumo real</p></div></div>' +
+          notice('Ejemplo: contador inicial <strong>7545</strong>, final <strong>8045</strong> → movimiento <strong>500 L</strong>. Si registras una entrada de <strong>400 L</strong> y tus salidas son <strong>100 L</strong>, el consumo real es <strong>100 L</strong> y la diferencia es <strong>0</strong>. El contador sigue en 8045.', '') +
+          '<form id="aceiteEntradaForm" novalidate><div class="grid cols-4">' +
+            field('Fecha','<input type="date" name="fecha" required value="' + esc(de.fecha) + '">') +
+            field('Producto','<select name="producto">' + ACEITE_PRODUCTOS.map(p=>'<option value="' + esc(p) + '"' + (de.producto===p?' selected':'') + '>' + esc(p) + '</option>').join('') + '</select>') +
+            field('Concepto','<select name="concepto">' + ['Llegada de aceite','Ajuste de contador','Devolución','Otro'].map(c=>'<option value="' + esc(c) + '"' + (de.concepto===c?' selected':'') + '>' + esc(c) + '</option>').join('') + '</select>') +
+            field('Litros de entrada','<input name="litros" type="number" step="any" min="0.01" required value="' + esc(de.litros) + '" placeholder="Ej. 400">') +
+          '</div><div class="grid cols-4" style="margin-top:12px">' +
+            field('Proveedor','<input name="proveedor" value="' + esc(de.proveedor) + '" placeholder="Opcional">') +
+            field('Folio / orden','<input name="folio" value="' + esc(de.folio) + '" placeholder="Opcional">') +
+            field('Notas','<input name="notas" maxlength="240" value="' + esc(de.notas) + '" placeholder="Opcional">') +
+          '</div><div class="row end" style="margin-top:14px"><button class="btn accent" type="submit">Agregar entrada</button></div></form>' +
+          '<div class="kpis" style="margin-top:12px">' + kpi('Entradas del día', nf(totalEntradasDia,1)+' L', dayEntradas.length+' registro(s)', '') + '</div>' +
+          (dayEntradas.length
+            ? '<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Producto</th><th>Concepto</th><th class="num">Litros</th><th>Proveedor</th><th>Folio</th><th></th></tr></thead><tbody>' +
+              dayEntradas.map(r=>'<tr><td><strong>' + esc(r.producto||'—') + '</strong></td><td>' + esc(r.concepto||'Llegada de aceite') + '</td><td class="num"><strong>' + nf(r.litros,1) + '</strong></td><td>' + esc(r.proveedor||'—') + '</td><td class="mono">' + esc(r.folio||'—') + '</td><td class="actions"><button class="btn icon del" type="button" data-act="del-aceite-entrada" data-id="' + esc(r.id) + '" title="Eliminar">' + ICO_DEL + '</button></td></tr>').join('') +
+              '</tbody><tfoot><tr><td colspan="2"><strong>Total entradas</strong></td><td class="num"><strong>' + nf(totalEntradasDia,1) + '</strong></td><td colspan="3"></td></tr></tfoot></table></div>'
+            : '<div class="empty" style="margin-top:12px"><h3>Sin entradas este día</h3><p>Registra aquí las llegadas de aceite o los ajustes del contador.</p></div>') +
         '</section>' +
 
         '<section class="card">' +
@@ -1577,9 +1665,9 @@
     while (d <= hasta && n < 400) {
       const dispatches = Store.getAceiteDispatches().filter((r)=>r.fecha===d);
       const salidas = sum(dispatches,(r)=>r.litros);
-      let cuenta = 0, tieneCuenta = false;
-      ACEITE_PRODUCTOS.forEach(p => { const info = Store.aceiteDayInfo?Store.aceiteDayInfo(d,p):null; if (info && info.tieneDato) { cuenta += info.totalCuenta; tieneCuenta = true; } });
-      out.push({ fecha:d, salidas: salidas || 0, salidasN: salidas || null, cuenta: tieneCuenta ? cuenta : null, n: dispatches.length });
+      let cuenta = 0, entradas = 0, consumo = 0, tieneCuenta = false;
+      ACEITE_PRODUCTOS.forEach(p => { const info = Store.aceiteDayInfo?Store.aceiteDayInfo(d,p):null; if (info && info.tieneDato) { cuenta += info.totalCuenta; entradas += info.totalEntradas || 0; consumo += info.consumo == null ? 0 : info.consumo; tieneCuenta = true; } });
+      out.push({ fecha:d, salidas: salidas || 0, salidasN: salidas || null, cuenta: tieneCuenta ? cuenta : null, entradas: entradas || 0, consumo: tieneCuenta ? consumo : null, n: dispatches.length });
       d = addDays(d, 1); n++;
     }
     return out;
@@ -1595,7 +1683,9 @@
     const promDia = daysWith ? totalSalidas / daysWith : 0;
     const pico = daily.slice().sort((a,b)=>(b.salidas||0)-(a.salidas||0))[0] || null;
     const totalCuenta = sum(meters.filter(m=>m.litros!=null),(m)=>m.litros);
-    return { totalSalidas, byProd, byMotivo, byComp, topEquipos, daysWith, promDia, pico, totalCuenta, registros: dispatches.length, lecturas: meters.filter(m=>m.litros!=null).length };
+    const totalEntradas = sum(daily,(d)=>d.entradas);
+    const totalConsumo = sum(daily,(d)=>d.consumo);
+    return { totalSalidas, byProd, byMotivo, byComp, topEquipos, daysWith, promDia, pico, totalCuenta, totalEntradas, totalConsumo, registros: dispatches.length, lecturas: meters.filter(m=>m.litros!=null).length };
   }
 
   function aceitesChartsHtml(desde, hasta) {
@@ -1611,15 +1701,17 @@
       '<section class="card"><div class="card-head"><div><h2>KPIs avanzados (aceites)</h2><p>Indicadores del periodo · ' + esc(fmtDate(desde)) + ' a ' + esc(fmtDate(hasta)) + '</p></div></div>' +
         '<div class="kpis">' +
           kpi('Litros salidas', nf(a.totalSalidas,1) + ' L', a.registros + ' renglones', '') +
-          kpi('Litros cuenta litros', nf(a.totalCuenta,1) + ' L', a.lecturas + ' lecturas', '') +
-          kpi('Diferencia global', nf(a.totalCuenta - a.totalSalidas,1) + ' L', 'cuenta litros - salidas', Math.abs(a.totalCuenta - a.totalSalidas) > 1 ? 'bad' : 'good') +
+          kpi('Movimiento contador', nf(a.totalCuenta,1) + ' L', a.lecturas + ' lecturas', '') +
+          kpi('Entradas', nf(a.totalEntradas,1) + ' L', 'llegadas/ajustes del contador', '') +
+          kpi('Consumo real', nf(a.totalConsumo,1) + ' L', 'movimiento - entradas', '') +
+          kpi('Diferencia global', nf(a.totalConsumo - a.totalSalidas,1) + ' L', 'consumo real - salidas', Math.abs(a.totalConsumo - a.totalSalidas) > 1 ? 'bad' : 'good') +
           kpi('Promedio diario', nf(a.promDia,1) + ' L', a.daysWith + ' días con actividad', '') +
           kpi('Día pico (salidas)', a.pico && a.pico.salidas ? nf(a.pico.salidas,1) + ' L' : '—', a.pico && a.pico.salidas ? fmtDate(a.pico.fecha) : 'Sin datos', '') +
           kpi('Top producto', topProd ? esc(topProd.label) : '—', topProd ? nf(topProd.value,1) + ' L' : '', '') +
           kpi('Top equipo', topEq ? esc(topEq.label) : '—', topEq ? nf(topEq.value,1) + ' L' : '', '') +
           kpi('Top motivo', topMot ? esc(topMot.label) : '—', topMot ? nf(topMot.value,1) + ' L' : '', '') +
         '</div></section>' +
-      '<section class="card"><div class="card-head"><div><h2>Tendencia de consumo (aceites)</h2><p>Barras: litros de salidas por día · Línea: litros cuenta litros (suma productos)</p></div></div><div id="aceiteTrend"></div></section>' +
+      '<section class="card"><div class="card-head"><div><h2>Tendencia de consumo (aceites)</h2><p>Barras: litros de salidas por día · Línea: consumo real (movimiento del contador − entradas)</p></div></div><div id="aceiteTrend"></div></section>' +
       '<section class="card"><div class="card-head"><div><h2>Distribución por producto y motivo</h2><p>Consumo de aceites en el periodo</p></div></div><div class="grid cols-2">' +
         '<div><h3 style="font-size:13px;margin:0 0 8px;color:var(--muted)">Por producto</h3><div id="aceiteByProd"></div></div>' +
         '<div><h3 style="font-size:13px;margin:0 0 8px;color:var(--muted)">Por motivo</h3><div id="aceiteByMotivo"></div></div>' +
@@ -1640,7 +1732,7 @@
     const meters = Store.getAceiteMeters().filter((r)=>r.fecha>=desde && r.fecha<=hasta);
     const daily = aceitesDailyRange(desde, hasta);
     const a = aceitesAnalytics(dispatches, meters, daily);
-    if ($('#aceiteTrend')) DieselCharts.combo($('#aceiteTrend'), { labels: daily.map(d=>fmtShort(d.fecha)), bars: daily.map(d=>d.salidas||0), line: daily.map(d=>d.cuenta==null?null:d.cuenta), barUnit:'L salidas', lineUnit:'L cuenta litros', aria:'Tendencia de consumo de aceites' });
+    if ($('#aceiteTrend')) DieselCharts.combo($('#aceiteTrend'), { labels: daily.map(d=>fmtShort(d.fecha)), bars: daily.map(d=>d.salidas||0), line: daily.map(d=>d.consumo==null?null:d.consumo), barUnit:'L salidas', lineUnit:'L consumo real', aria:'Tendencia de consumo de aceites' });
     if ($('#aceiteByProd')) DieselCharts.donut($('#aceiteByProd'), { labels: a.byProd.map(x=>x.label), values: a.byProd.map(x=>x.value), unit:'L', colors:['#f59e0b','#0ea5e9','#22c55e','#8b5cf6','#ef4444'], aria:'Consumo por producto' });
     if ($('#aceiteByMotivo')) DieselCharts.barh($('#aceiteByMotivo'), { labels: a.byMotivo.map(x=>x.label), values: a.byMotivo.map(x=>x.value), unit:'L', aria:'Consumo por motivo' });
     if ($('#aceiteTopEquipos')) DieselCharts.barh($('#aceiteTopEquipos'), { labels: a.topEquipos.map(x=>x.label), values: a.topEquipos.map(x=>x.value), unit:'L', colors:['#0ea5e9','#38bdf8','#7dd3fc','#f59e0b','#fbbf24','#22c55e','#8b5cf6','#ef4444','#14b8a6','#eab308'], aria:'Top equipos aceites' });
@@ -1655,16 +1747,18 @@
     const canon = (v) => Store.canonProductoAceite ? Store.canonProductoAceite(v) : v;
     let dispatches = Store.getAceiteDispatches().filter((r)=>r.fecha>=desde && r.fecha<=hasta);
     let meters = Store.getAceiteMeters().filter((r)=>r.fecha>=desde && r.fecha<=hasta);
+    let entradas = (Store.getAceiteEntradas ? Store.getAceiteEntradas() : []).filter((r)=>r.fecha>=desde && r.fecha<=hasta);
     if (soloProducto) {
       dispatches = dispatches.filter((r)=>canon(r.tipoAceite) === soloProducto);
       meters = meters.filter((r)=>canon(r.producto) === soloProducto);
+      entradas = entradas.filter((r)=>canon(r.producto) === soloProducto);
     }
-    if (!dispatches.length && !meters.length) {
+    if (!dispatches.length && !meters.length && !entradas.length) {
       toast(soloProducto ? ('No hay datos de ' + producto + ' en el periodo para exportar.') : 'No hay datos de aceites en el periodo para exportar.', 'err');
       return;
     }
     try {
-      const bytes = AceitesXLSX.build({ config: Store.getConfig(), dispatches, meters, desde, hasta, producto: soloProducto || '' });
+      const bytes = AceitesXLSX.build({ config: Store.getConfig(), dispatches, meters, entradas, desde, hasta, producto: soloProducto || '' });
       const base = AceitesXLSX.filename(desde, hasta).replace(/\.xlsx$/i, '');
       const sufijo = soloProducto ? '_' + soloProducto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_') : '';
       const name = (soloProducto ? base.replace(/^REPORTE_ACEITES_/, 'BITACORA_ACEITES_') : base) + sufijo + '.xlsx';
@@ -1703,6 +1797,8 @@
     const lecturas = (meta.meterRows != null ? meta.meterRows : (meta.bobaRows != null ? meta.bobaRows : (p.meters||[]).length));
     const litrosSal = (meta.litrosSalidas != null ? meta.litrosSalidas : (meta.litrosCargas != null ? meta.litrosCargas : null));
     const litrosCta = (meta.litrosCuenta != null ? meta.litrosCuenta : (meta.litrosBoba != null ? meta.litrosBoba : null));
+    const entradas = (meta.entradaRows != null ? meta.entradaRows : (p.entradas||[]).length);
+    const litrosEnt = (meta.litrosEntradas != null ? meta.litrosEntradas : null);
     const canonAceite = (v)=>Store.canonProductoAceite ? Store.canonProductoAceite(v) : v;
     const porProducto = {};
     (p.dispatches||[]).forEach((d)=>{
@@ -1712,9 +1808,9 @@
     });
     const resumenProductos = Object.keys(porProducto).sort().map((prod)=>prod + ': ' + porProducto[prod].n + ' salidas (' + nf(porProducto[prod].l, 1) + ' L)').join(' · ');
     return '<div class="import-preview">' +
-      '<div class="notice ok"><div><strong>' + esc(ui.aceiteImportName||'Archivo') + '</strong> — ' + rows + ' salidas — ' + lecturas + ' lecturas cuenta litros — ' + esc(meta.desde?fmtDate(meta.desde):'') + ' a ' + esc(meta.hasta?fmtDate(meta.hasta):'') + '</div>' +
+      '<div class="notice ok"><div><strong>' + esc(ui.aceiteImportName||'Archivo') + '</strong> — ' + rows + ' salidas — ' + lecturas + ' lecturas cuenta litros — ' + entradas + ' entradas — ' + esc(meta.desde?fmtDate(meta.desde):'') + ' a ' + esc(meta.hasta?fmtDate(meta.hasta):'') + '</div>' +
         (resumenProductos ? '<div style="margin-top:6px"><strong>Salidas por producto:</strong> ' + esc(resumenProductos) + '</div>' : '') + '</div>' +
-      '<div class="kpis" style="margin:12px 0">' + kpi('Litros en salidas', litros(litrosSal), 'del archivo','') + kpi('Litros en cuenta litros', litros(litrosCta), 'lecturas del archivo','') + kpi('Hojas', (meta.sheets||[]).length, (meta.sheets||[]).join(', '),'') + '</div>' +
+      '<div class="kpis" style="margin:12px 0">' + kpi('Litros en salidas', litros(litrosSal), 'del archivo','') + kpi('Litros en cuenta litros', litros(litrosCta), 'lecturas del archivo','') + kpi('Litros en entradas', litros(litrosEnt), 'llegadas/ajustes del archivo','') + kpi('Hojas', (meta.sheets||[]).length, (meta.sheets||[]).join(', '),'') + '</div>' +
       ((meta.warnings||[]).length ? notice('<strong>Avisos de lectura:</strong><ul style="margin:6px 0 0 18px">' + meta.warnings.slice(0,5).map((w)=>'<li>'+esc(w)+'</li>').join('') + '</ul>','warn') : '') +
       '<div class="row" style="margin-top:12px"><label class="check"><input type="radio" name="aceiteImportMode" value="merge" checked> Combinar</label><label class="check"><input type="radio" name="aceiteImportMode" value="replace"> Reemplazar periodos</label><span class="muted" style="font-size:12px">Combinar actualiza renglones iguales y agrega nuevos. Reemplazar deja el periodo exactamente como el archivo.</span></div>' +
       '<div class="row" style="margin-top:12px"><button class="btn accent" type="button" data-act="confirm-import-aceites">Importar datos</button><button class="btn ghost" type="button" data-act="cancel-import-aceites">Cancelar</button></div></div>';
@@ -1726,10 +1822,10 @@
     try {
       const buf = await file.arrayBuffer();
       const parsed = AceitesXLSX.parse(buf);
-      if (!parsed.dispatches.length && !parsed.meters.length) { toast('El archivo no contiene salidas ni lecturas de cuenta litros reconocibles.', 'err'); return; }
+      if (!parsed.dispatches.length && !parsed.meters.length && !parsed.entradas.length) { toast('El archivo no contiene salidas, lecturas ni entradas reconocibles.', 'err'); return; }
       ui.aceiteImportPreview = parsed;
       ui.aceiteImportName = file.name;
-      toast('Archivo leído: ' + parsed.dispatches.length + ' salidas, ' + parsed.meters.length + ' lecturas.', 'ok');
+      toast('Archivo leído: ' + parsed.dispatches.length + ' salidas, ' + parsed.meters.length + ' lecturas, ' + parsed.entradas.length + ' entradas.', 'ok');
       render();
       const inp = document.getElementById('fileImportAceites'); if (inp) inp.value = '';
     } catch (err) { console.error(err); toast('No se pudo leer el archivo: ' + (err.message || err), 'err'); const inp = document.getElementById('fileImportAceites'); if (inp) inp.value = ''; }
@@ -1932,7 +2028,7 @@
       (catRows ? pdfSection('Detalle por categoría', 'Participación y promedios de carga',
         '<table><thead><tr><th>Categoría</th><th class="num">Litros</th><th class="num">%</th><th class="num">Cargas</th><th class="num">Promedio/carga</th></tr></thead><tbody>' + catRows + '</tbody></table>') : '') +
 
-      pdfSection('Cuenta litros y cotejo con salidas', 'Lecturas de contador (inicial → final) vs cargas por día',
+      pdfSection('Consumo real y cotejo con salidas', 'Lecturas de contador (inicial → final) vs cargas por día',
         bobaRows ? '<table><thead><tr><th>Fecha</th><th>Lecturas contador (inicial → final = litros)</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th></tr></thead><tbody>' + bobaRows + '</tbody></table>' : '<p class="muted">Sin lecturas de cuenta litros en el periodo.</p>') +
 
       '<div class="rfoot"><div>Control de diésel · Sierra Madre · Reporte generado automáticamente</div><div>' + esc(fmtDateTime(new Date().toISOString())) + '</div></div>';
@@ -1955,10 +2051,10 @@
     var a = aceitesAnalytics(dispatches, meters, daily);
     if (!dispatches.length && !meters.length) { toast('No hay datos de aceites en el periodo para generar el reporte.', 'err'); return; }
     var topProd = a.byProd[0], topEq = a.topEquipos[0], topMot = a.byMotivo[0];
-    var diffG = a.totalCuenta - a.totalSalidas;
+    var diffG = a.totalConsumo - a.totalSalidas;
 
     var snaps = snapshotCharts([
-      { id: 'atrend', draw: function (el) { DieselCharts.combo(el, { labels: daily.map(function (d) { return fmtShort(d.fecha); }), bars: daily.map(function (d) { return d.salidas || 0; }), line: daily.map(function (d) { return d.cuenta == null ? null : d.cuenta; }), barUnit: 'L salidas', lineUnit: 'L cuenta litros', aria: 'Tendencia aceites' }); } },
+      { id: 'atrend', draw: function (el) { DieselCharts.combo(el, { labels: daily.map(function (d) { return fmtShort(d.fecha); }), bars: daily.map(function (d) { return d.salidas || 0; }), line: daily.map(function (d) { return d.consumo == null ? null : d.consumo; }), barUnit: 'L salidas', lineUnit: 'L consumo real', aria: 'Tendencia aceites' }); } },
       { id: 'aprod', width: 460, draw: function (el) { DieselCharts.donut(el, { labels: a.byProd.map(function (x) { return x.label; }), values: a.byProd.map(function (x) { return x.value; }), unit: 'L', colors: ['#f59e0b', '#0ea5e9', '#22c55e', '#8b5cf6', '#ef4444'], aria: 'Por producto' }); } },
       { id: 'amot', width: 460, draw: function (el) { DieselCharts.barh(el, { labels: a.byMotivo.map(function (x) { return x.label; }), values: a.byMotivo.map(function (x) { return x.value; }), unit: 'L', aria: 'Por motivo' }); } },
       { id: 'aeq', width: 460, draw: function (el) { DieselCharts.barh(el, { labels: a.topEquipos.map(function (x) { return x.label; }), values: a.topEquipos.map(function (x) { return x.value; }), unit: 'L', colors: ['#0ea5e9', '#38bdf8', '#7dd3fc', '#f59e0b', '#fbbf24', '#22c55e', '#8b5cf6', '#ef4444', '#14b8a6', '#eab308'], aria: 'Top equipos' }); } },
@@ -1974,15 +2070,23 @@
     var meterRows = [];
     daily.forEach(function (d) {
       ACEITE_PRODUCTOS.forEach(function (prod) {
-        var rec = Store.aceiteBobaFor ? Store.aceiteBobaFor(d.fecha, prod) : (Store.getAceiteMeters().find(function (r) { return r.fecha === d.fecha && (Store.canonProductoAceite ? Store.canonProductoAceite(r.producto) : r.producto) === prod; }));
-        var salArr = Store.getAceiteDispatches().filter(function (r) { return r.fecha === d.fecha && (Store.canonProductoAceite ? Store.canonProductoAceite(r.tipoAceite) : r.tipoAceite) === prod; });
-        var sal = sum(salArr, function (r) { return r.litros; });
-        if (!rec && !salArr.length) return;
-        var cont = rec && rec.litros != null ? rec.litros : null;
-        var diff = cont == null ? null : cont - sal;
-        meterRows.push('<tr><td class="mono">' + esc(fmtShort(d.fecha)) + '</td><td>' + esc(prod) + '</td><td class="num">' + (rec && rec.inicial != null ? nf(rec.inicial, 2) : '—') + '</td><td class="num">' + (rec && rec.final != null ? nf(rec.final, 2) : '—') + '</td><td class="num">' + (cont == null ? '—' : nf(cont, 2)) + '</td><td class="num">' + nf(sal || 0, 2) + '</td><td class="num ' + (diff == null ? '' : Math.abs(diff) <= 1 ? 'pos' : 'neg') + '">' + (diff == null ? '—' : (diff > 0 ? '+' : '') + nf(diff, 2)) + '</td></tr>');
+        var info = Store.aceiteDayInfo ? Store.aceiteDayInfo(d.fecha, prod) : null;
+        var rec = info ? info.rec : null;
+        var sal = info ? info.totalSalidas : 0;
+        var entradas = info ? (info.totalEntradas || 0) : 0;
+        if (!rec && !sal && !entradas) return;
+        var mov = info ? info.totalCuenta : null;
+        var consumo = info ? info.consumo : null;
+        var diff = info ? info.diff : null;
+        meterRows.push('<tr><td class="mono">' + esc(fmtShort(d.fecha)) + '</td><td>' + esc(prod) + '</td><td class="num">' + (rec && rec.inicial != null ? nf(rec.inicial, 2) : '—') + '</td><td class="num">' + (rec && rec.final != null ? nf(rec.final, 2) : '—') + '</td><td class="num">' + (mov == null ? '—' : nf(mov, 2)) + '</td><td class="num">' + nf(entradas, 2) + '</td><td class="num"><strong>' + (consumo == null ? '—' : nf(consumo, 2)) + '</strong></td><td class="num">' + nf(sal || 0, 2) + '</td><td class="num ' + (diff == null ? '' : Math.abs(diff) <= 1 ? 'pos' : 'neg') + '">' + (diff == null ? '—' : (diff > 0 ? '+' : '') + nf(diff, 2)) + '</td></tr>');
       });
     });
+
+    var entradaRows = (Store.getAceiteEntradas ? Store.getAceiteEntradas() : []).filter(function (r) { return r.fecha >= desde && r.fecha <= hasta; })
+      .sort(function (a, b) { return String(a.fecha).localeCompare(String(b.fecha)) || String(a.producto).localeCompare(String(b.producto)); })
+      .map(function (r) {
+        return '<tr><td class="mono">' + esc(fmtShort(r.fecha)) + '</td><td>' + esc(r.producto || '') + '</td><td>' + esc(r.concepto || 'Llegada de aceite') + '</td><td class="num">' + nf(r.litros, 2) + '</td><td>' + esc(r.proveedor || '—') + '</td><td class="mono">' + esc(r.folio || '—') + '</td></tr>';
+      }).join('');
 
     var dispRows = dispatches.slice().sort(function (a, b) { return a.fecha.localeCompare(b.fecha) || (a.equipo || '').localeCompare(b.equipo || ''); }).slice(0, 200).map(function (r) {
       return '<tr><td class="mono">' + esc(fmtShort(r.fecha)) + '</td><td><strong>' + esc(r.equipo || '') + '</strong></td><td>' + esc(r.tipoAceite || '') + '</td><td>' + esc(r.compartimento || '') + '</td><td>' + esc(r.motivo || '') + '</td><td class="num">' + nf(r.litros, 2) + '</td><td>' + esc(r.mecanico || '') + '</td><td class="mono">' + esc(r.folio || '') + '</td></tr>';
@@ -1994,8 +2098,10 @@
 
       pdfSection('Resumen ejecutivo', 'Indicadores clave del periodo', '<div class="rgrid">' +
         pdfKpi('Litros salidas', nf(a.totalSalidas, 1) + ' L', a.registros + ' renglones de despacho', '') +
-        pdfKpi('Litros cuenta litros', nf(a.totalCuenta, 1) + ' L', a.lecturas + ' lecturas registradas', '') +
-        pdfKpi('Diferencia global', nf(diffG, 1) + ' L', 'cuenta litros — salidas', Math.abs(diffG) > 1 ? 'bad' : 'good') +
+        pdfKpi('Movimiento contador', nf(a.totalCuenta, 1) + ' L', a.lecturas + ' lecturas registradas', '') +
+        pdfKpi('Entradas', nf(a.totalEntradas, 1) + ' L', 'llegadas/ajustes del contador', '') +
+        pdfKpi('Consumo real', nf(a.totalConsumo, 1) + ' L', 'movimiento − entradas', '') +
+        pdfKpi('Diferencia global', nf(diffG, 1) + ' L', 'consumo real — salidas', Math.abs(diffG) > 1 ? 'bad' : 'good') +
         pdfKpi('Promedio diario', nf(a.promDia, 1) + ' L', a.daysWith + ' días con actividad', '') +
         pdfKpi('Día pico (salidas)', a.pico && a.pico.salidas ? nf(a.pico.salidas, 1) + ' L' : '—', a.pico && a.pico.salidas ? fmtDate(a.pico.fecha) : 'Sin datos', '') +
         pdfKpi('Top producto', topProd ? topProd.label : '—', topProd ? nf(topProd.value, 1) + ' L' : '', '') +
@@ -2003,7 +2109,7 @@
         pdfKpi('Top motivo', topMot ? topMot.label : '—', topMot ? nf(topMot.value, 1) + ' L' : '', '') +
       '</div>') +
 
-      pdfSection('Tendencia de consumo', 'Barras: litros de salidas por día · Línea: litros cuenta litros (suma productos)',
+      pdfSection('Tendencia de consumo', 'Barras: litros de salidas por día · Línea: consumo real (movimiento − entradas)',
         '<div class="rchart">' + snaps.atrend + '</div>') +
 
       pdfSection('Distribución de consumo', 'Por producto, motivo, equipo y compartimento',
@@ -2013,8 +2119,11 @@
       (prodRows ? pdfSection('Detalle por producto', 'Participación y promedios de salida',
         '<table><thead><tr><th>Producto</th><th class="num">Litros</th><th class="num">%</th><th class="num">Salidas</th><th class="num">Promedio/salida</th></tr></thead><tbody>' + prodRows + '</tbody></table>') : '') +
 
-      pdfSection('Cuenta litros y cotejo con salidas', 'Lecturas por producto y día (contador vs salidas)',
-        meterRows.length ? '<table><thead><tr><th>Fecha</th><th>Producto</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Contador (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th></tr></thead><tbody>' + meterRows.join('') + '</tbody></table>' : '<p class="muted">Sin lecturas de cuenta litros en el periodo.</p>') +
+      (entradaRows ? pdfSection('Entradas de aceite', 'Llegadas y ajustes de contador (no cuentan como consumo)',
+        '<table><thead><tr><th>Fecha</th><th>Producto</th><th>Concepto</th><th class="num">Litros</th><th>Proveedor</th><th>Folio</th></tr></thead><tbody>' + entradaRows + '</tbody></table>') : '') +
+
+      pdfSection('Consumo real y cotejo con salidas', 'Movimiento del contador − entradas = consumo real, cotejado con salidas',
+        meterRows.length ? '<table><thead><tr><th>Fecha</th><th>Producto</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Movimiento (L)</th><th class="num">Entradas (L)</th><th class="num">Consumo real (L)</th><th class="num">Salidas (L)</th><th class="num">Diferencia (L)</th></tr></thead><tbody>' + meterRows.join('') + '</tbody></table>' : '<p class="muted">Sin lecturas de cuenta litros en el periodo.</p>') +
 
       (dispRows ? pdfSection('Detalle de salidas/despachos', dispatches.length > 200 ? 'Mostrando primeros 200 de ' + dispatches.length + ' renglones' : dispatches.length + ' renglones del periodo',
         '<table><thead><tr><th>Fecha</th><th>Equipo</th><th>Tipo de aceite</th><th>Compartimento</th><th>Motivo</th><th class="num">Litros</th><th>Mecánico</th><th>Folio</th></tr></thead><tbody>' + dispRows + '</tbody></table>') : '') +

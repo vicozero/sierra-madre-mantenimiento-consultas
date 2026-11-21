@@ -6,9 +6,10 @@
      Precio/L, Importe, Mecánico, Responsable, Folio / orden.
    - Soporta cuenta litros del despacho por producto (Motor Shell /
      Hidráulico Shell). Exporta hojas separadas por producto ("SALIDAS MOTOR" /
-      "SALIDAS HIDRAULICO" y sus "CUENTA LITROS"), e importa todas
+      "SALIDAS HIDRAULICO", sus "CUENTA LITROS" y "ENTRADAS ..."), e importa todas
       las hojas reconocidas (incluido el formato combinado antiguo
-      "REPORTE ACEITES").
+      "REPORTE ACEITES"). Las entradas son llegadas/ajustes del contador:
+      consumo real = movimiento del contador - entradas.
    - Sin dependencias externas salvo fflate (ZIP), incluido local.
    ============================================================= */
 window.AceitesXLSX = (function () {
@@ -222,45 +223,92 @@ window.AceitesXLSX = (function () {
     const cfg = opt.config || {};
     const meters = (opt.meters || []).slice().sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)) || String(a.producto||'').localeCompare(String(b.producto||'')));
     const salidaBy = opt.salidaBy || {}; // key fecha|producto
+    const entradaBy = opt.entradaBy || {}; // key fecha|producto
     const rows = [];
     rows.push(rowXml(1, [cellText('A1', STYLE.title, 'CUENTA LITROS — ' + (opt.productLabel ? String(opt.productLabel).toUpperCase() + ' — ' : 'ACEITES — ') + (cfg.empresa || ''))], 'ht="22" customHeight="1"'));
     rows.push(rowXml(2, [cellText('A2', STYLE.company, cfg.razonSocial || '')]));
     rows.push('<row r="3"/>');
-    const headers = ['Fecha','Producto','Lectura inicial','Lectura final','Litros (cuenta litros)','Litros salidas','Diferencia','Notas'];
+    const headers = ['Fecha','Producto','Lectura inicial','Lectura final','Litros (movimiento)','Entradas (L)','Consumo real (L)','Litros salidas','Diferencia','Notas'];
     rows.push(rowXml(4, headers.map((h,i)=>cellText(colLetter(i)+'4', STYLE.header, h)), 'ht="28" customHeight="1"'));
-    let r=5, sb=0, ss=0, sd=0;
+    let r=5, sb=0, se=0, sc=0, ss=0, sd=0;
     meters.forEach(m=>{
       const prod = canonProducto(m.producto) || m.producto || '';
       const key = m.fecha + '|' + prod;
       const salidas = Number(salidaBy[key] || 0);
+      const entradas = Number(entradaBy[key] || 0);
       const litros = m.litros == null ? null : Number(m.litros);
-      const diff = litros == null ? null : litros - salidas;
-      if (litros != null) sb += litros; ss += salidas; if (diff != null) sd += diff;
+      const consumo = litros == null ? null : litros - entradas;
+      const diff = consumo == null ? null : consumo - salidas;
+      if (litros != null) { sb += litros; se += entradas; sc += consumo; } ss += salidas; if (diff != null) sd += diff;
       rows.push(rowXml(r, [
         cellDate('A'+r, STYLE.date, m.fecha),
         cellText('B'+r, STYLE.centered, prod),
         cellNumber('C'+r, STYLE.number, m.inicial),
         cellNumber('D'+r, STYLE.number, m.final),
         cellNumber('E'+r, STYLE.number, litros),
-        cellNumber('F'+r, STYLE.number, salidas),
-        cellNumber('G'+r, STYLE.number, diff),
-        cellText('H'+r, STYLE.data, m.notas || '')
+        cellNumber('F'+r, STYLE.number, entradas),
+        cellNumber('G'+r, STYLE.number, consumo),
+        cellNumber('H'+r, STYLE.number, salidas),
+        cellNumber('I'+r, STYLE.number, diff),
+        cellText('J'+r, STYLE.data, m.notas || '')
       ]));
       r++;
     });
     const lastData=r-1, totalRow=r;
-    rows.push(rowXml(totalRow, [cellText('A'+totalRow,STYLE.totalLabel,'TOTAL'), cellText('B'+totalRow,STYLE.data,''), cellText('C'+totalRow,STYLE.data,''), cellText('D'+totalRow,STYLE.data,''), cellNumber('E'+totalRow,STYLE.totalNumber,sb), cellNumber('F'+totalRow,STYLE.totalNumber,ss), cellNumber('G'+totalRow,STYLE.totalNumber,sd), cellText('H'+totalRow,STYLE.data,'')]));
-    const cols=[['A',12],['B',22],['C',16],['D',16],['E',18],['F',16],['G',14],['H',36]];
+    rows.push(rowXml(totalRow, [cellText('A'+totalRow,STYLE.totalLabel,'TOTAL'), cellText('B'+totalRow,STYLE.data,''), cellText('C'+totalRow,STYLE.data,''), cellText('D'+totalRow,STYLE.data,''), cellNumber('E'+totalRow,STYLE.totalNumber,sb), cellNumber('F'+totalRow,STYLE.totalNumber,se), cellNumber('G'+totalRow,STYLE.totalNumber,sc), cellNumber('H'+totalRow,STYLE.totalNumber,ss), cellNumber('I'+totalRow,STYLE.totalNumber,sd), cellText('J'+totalRow,STYLE.data,'')]));
+    const cols=[['A',12],['B',22],['C',16],['D',16],['E',18],['F',14],['G',16],['H',16],['I',14],['J',36]];
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
       '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
-      '<dimension ref="A1:H'+totalRow+'"/>' +
+      '<dimension ref="A1:J'+totalRow+'"/>' +
       '<sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A5" sqref="A5"/></sheetView></sheetViews>' +
       '<sheetFormatPr defaultRowHeight="15"/>' +
       '<cols>'+cols.map(c=>'<col min="'+(colIndex(c[0])+1)+'" max="'+(colIndex(c[0])+1)+'" width="'+c[1]+'" customWidth="1"/>').join('')+'</cols>' +
       '<sheetData>'+rows.join('')+'</sheetData>' +
-      '<autoFilter ref="A4:H'+Math.max(4,lastData)+'"/>' +
-      '<mergeCells count="1"><mergeCell ref="A1:H1"/></mergeCells>' +
+      '<autoFilter ref="A4:J'+Math.max(4,lastData)+'"/>' +
+      '<mergeCells count="1"><mergeCell ref="A1:J1"/></mergeCells>' +
+      '<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>' +
+      '<pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/></worksheet>';
+  }
+
+  /* ------------------------------ entradas sheet ------------------------------ */
+  function buildEntradasSheet(opt) {
+    const cfg = opt.config || {};
+    const entradas = (opt.entradas || []).slice().sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+    const rows = [];
+    rows.push(rowXml(1, [cellText('A1', STYLE.title, 'ENTRADAS DE ACEITE — ' + (opt.productLabel ? String(opt.productLabel).toUpperCase() + ' — ' : '') + (cfg.empresa || ''))], 'ht="22" customHeight="1"'));
+    rows.push(rowXml(2, [cellText('A2', STYLE.company, cfg.razonSocial || '')]));
+    rows.push('<row r="3"/>');
+    const headers = ['Fecha','Producto','Concepto','Litros (entrada)','Proveedor','Folio','Notas'];
+    rows.push(rowXml(4, headers.map((h,i)=>cellText(colLetter(i)+'4', STYLE.header, h)), 'ht="28" customHeight="1"'));
+    let r=5, total=0;
+    entradas.forEach(e=>{
+      const litros = e.litros == null ? null : Number(e.litros);
+      if (litros != null) total += litros;
+      rows.push(rowXml(r, [
+        cellDate('A'+r, STYLE.date, e.fecha),
+        cellText('B'+r, STYLE.centered, canonProducto(e.producto) || e.producto || ''),
+        cellText('C'+r, STYLE.data, e.concepto || 'Llegada de aceite'),
+        cellNumber('D'+r, STYLE.number, litros),
+        cellText('E'+r, STYLE.data, e.proveedor || ''),
+        cellText('F'+r, STYLE.data, e.folio || ''),
+        cellText('G'+r, STYLE.data, e.notas || '')
+      ]));
+      r++;
+    });
+    const lastData=r-1, totalRow=r;
+    rows.push(rowXml(totalRow, [cellText('A'+totalRow,STYLE.totalLabel,'TOTAL'), cellText('B'+totalRow,STYLE.data,''), cellText('C'+totalRow,STYLE.data,''), cellNumber('D'+totalRow,STYLE.totalNumber,total), cellText('E'+totalRow,STYLE.data,''), cellText('F'+totalRow,STYLE.data,''), cellText('G'+totalRow,STYLE.data,'')]));
+    const cols=[['A',12],['B',22],['C',24],['D',16],['E',26],['F',16],['G',30]];
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
+      '<dimension ref="A1:G'+totalRow+'"/>' +
+      '<sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A5" sqref="A5"/></sheetView></sheetViews>' +
+      '<sheetFormatPr defaultRowHeight="15"/>' +
+      '<cols>'+cols.map(c=>'<col min="'+(colIndex(c[0])+1)+'" max="'+(colIndex(c[0])+1)+'" width="'+c[1]+'" customWidth="1"/>').join('')+'</cols>' +
+      '<sheetData>'+rows.join('')+'</sheetData>' +
+      '<autoFilter ref="A4:G'+Math.max(4,lastData)+'"/>' +
+      '<mergeCells count="1"><mergeCell ref="A1:G1"/></mergeCells>' +
       '<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>' +
       '<pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/></worksheet>';
   }
@@ -270,20 +318,28 @@ window.AceitesXLSX = (function () {
     const cfg = o.config || {};
     const dispatches = (o.dispatches || []).slice();
     const meters = (o.meters || []).slice();
-    const salidaBy = {};
+    const entradas = (o.entradas || []).slice();
+    const salidaBy = {}, entradaBy = {};
     dispatches.forEach(d=>{
       const prod = canonProducto(d.tipoAceite);
       if (!prod) return;
       const k = d.fecha + '|' + prod;
       salidaBy[k] = (salidaBy[k] || 0) + (Number(d.litros)||0);
     });
+    entradas.forEach(e=>{
+      const prod = canonProducto(e.producto || e.tipoAceite || e.aceite);
+      if (!prod) return;
+      const k = e.fecha + '|' + prod;
+      entradaBy[k] = (entradaBy[k] || 0) + (Number(e.litros)||0);
+    });
 
     // Separar la informacion por producto (Motor Shell / Hidraulico Shell).
     // Cada producto lleva su propia hoja de salidas y su propia hoja de cuenta litros.
     const groups = new Map();
-    const addGroup = (label)=>{ if(!groups.has(label)) groups.set(label,{ label, dispatches:[], meters:[] }); return groups.get(label); };
+    const addGroup = (label)=>{ if(!groups.has(label)) groups.set(label,{ label, dispatches:[], meters:[], entradas:[] }); return groups.get(label); };
     dispatches.forEach(d=>{ const p = canonProducto(d.tipoAceite) || 'OTROS'; addGroup(p).dispatches.push(d); });
     meters.forEach(m=>{ const p = canonProducto(m.producto) || text(m.producto) || 'OTROS'; addGroup(p).meters.push(m); });
+    entradas.forEach(e=>{ const p = canonProducto(e.producto || e.tipoAceite || e.aceite) || 'OTROS'; addGroup(p).entradas.push(e); });
 
     // Si se indico un producto, conservar solo ese grupo (defensa extra ademas del filtro de la app).
     const only = o.producto ? (canonProducto(o.producto) || text(o.producto)) : '';
@@ -302,12 +358,14 @@ window.AceitesXLSX = (function () {
     list.forEach(g=>{
       const sn = shortName(g.label);
       sheets.push({ name: ('SALIDAS ' + sn).slice(0,31), xml: buildMainSheet({ config: cfg, dispatches: g.dispatches, productLabel: g.label }) });
-      sheets.push({ name: ('CUENTA LITROS ' + sn).slice(0,31), xml: buildBobaSheet({ config: cfg, meters: g.meters, salidaBy, productLabel: g.label }) });
+      sheets.push({ name: ('CUENTA LITROS ' + sn).slice(0,31), xml: buildBobaSheet({ config: cfg, meters: g.meters, salidaBy, entradaBy, productLabel: g.label }) });
+      sheets.push({ name: ('ENTRADAS ' + sn).slice(0,31), xml: buildEntradasSheet({ config: cfg, entradas: g.entradas, productLabel: g.label }) });
     });
     if (!sheets.length) {
       // Respaldo: nunca generar un libro vacio.
       sheets.push({ name: 'REPORTE ACEITES', xml: buildMainSheet({ config: cfg, dispatches }) });
-      sheets.push({ name: 'CUENTA LITROS', xml: buildBobaSheet({ config: cfg, meters, salidaBy }) });
+      sheets.push({ name: 'CUENTA LITROS', xml: buildBobaSheet({ config: cfg, meters, salidaBy, entradaBy }) });
+      sheets.push({ name: 'ENTRADAS', xml: buildEntradasSheet({ config: cfg, entradas }) });
     }
     const files = {
       '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
@@ -400,11 +458,13 @@ window.AceitesXLSX = (function () {
     const shared = sharedStrings(files);
     const sheets = sheetList(files);
     const warnings=[];
-    let dispatches=[]; let meters=[]; const mainSheets=[], bobaSheets=[];
+    let dispatches=[]; let meters=[]; let entradas=[]; const mainSheets=[], bobaSheets=[], entradaSheets=[];
+    const isEntradaSheet = (name)=>/^\s*entradas/i.test(String(name||''));
     const parsedSheets = sheets.map(s=>{ const xml=files[s.path]?dec.decode(files[s.path]):''; return {name:s.name,path:s.path,rows:xml?parseSheet(xml,shared):[]}; }).filter(s=>s.rows.length);
 
     // Main dispatch sheet: headers include fecha, equipo, litros, tipo de aceite (or aceite/producto)
     for(const s of parsedSheets){
+      if(isEntradaSheet(s.name)) continue;
       const h = findHeader(s.rows, ['fecha','equipo','litros']);
       if(!h) continue;
       const map=h.map;
@@ -442,9 +502,37 @@ window.AceitesXLSX = (function () {
       });
     }
 
+    // Entradas sheet: llegadas/ajustes del contador (no son salidas ni consumo)
+    for(const s of parsedSheets){
+      if(!isEntradaSheet(s.name)) continue;
+      const h = findHeader(s.rows, ['fecha','litros']);
+      if(!h) continue;
+      const map=h.map;
+      const col=(...names)=>{ for(const n of names){ if(map[n]) return map[n]; const k=Object.keys(map).find(x=>x.indexOf(n)!==-1 || n.indexOf(x)!==-1); if(k) return map[k]; } return ''; };
+      const cFecha=col('fecha','date'); const cProd=col('producto','tipo de aceite','aceite','tipo');
+      const cConc=col('concepto'); const cLit=col('litros entrada','litros','entrada');
+      const cProv=col('proveedor'); const cFolio=col('folio','orden'); const cNotas=col('notas','observaciones');
+      if(!cFecha || !cLit) continue;
+      entradaSheets.push(s.name);
+      s.rows.forEach(row=>{
+        if(row.num <= h.row) return;
+        const fecha = asDate(getCell(row,cFecha)); if(!fecha) return;
+        if(/^total/i.test(text(getCell(row,cProd))) || /^total/i.test(text(getCell(row,cConc)))) return;
+        const litros = num(getCell(row,cLit)); if(litros==null || !(litros>0)) return;
+        const producto = normProducto(getCell(row,cProd)) || productoDesdeNombreHoja(s.name) || 'Hidráulico Shell';
+        entradas.push({
+          fecha, producto, litros: Math.round(litros*1000)/1000,
+          concepto: text(getCell(row,cConc)) || 'Llegada de aceite',
+          proveedor: text(getCell(row,cProv)),
+          folio: text(getCell(row,cFolio)),
+          notas: text(getCell(row,cNotas))
+        });
+      });
+    }
+
     // Cuenta litros sheet (puede haber una por producto)
     for(const s of parsedSheets){
-      if(mainSheets.indexOf(s.name)!==-1) continue;
+      if(mainSheets.indexOf(s.name)!==-1 || isEntradaSheet(s.name)) continue;
       const h = findHeader(s.rows, ['fecha','producto']);
       if(!h){
         // try fecha + (lectura inicial|inicial) as oil meter
@@ -482,19 +570,29 @@ window.AceitesXLSX = (function () {
     const mMap=new Map(); meters.forEach(m=>{ const k=m.fecha+'|'+(canonProducto(m.producto)||m.producto); if(!mMap.has(k)) mMap.set(k,m); });
     meters = Array.from(mMap.values()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)) || String(a.producto).localeCompare(String(b.producto)));
 
-    if(!mainSheets.length && !bobaSheets.length) throw new Error('No se encontró una hoja de aceites reconocible (se esperaban columnas como Fecha, Equipo, Litros).');
+    // dedupe entradas (mismo dia, producto, concepto, folio y litros)
+    const eMap=new Map();
+    entradas.forEach(e=>{
+      const k=[e.fecha,canonProducto(e.producto)||e.producto,e.concepto,e.folio,e.litros,e.proveedor].join('|');
+      if(!eMap.has(k)) eMap.set(k,e);
+    });
+    entradas = Array.from(eMap.values()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)) || String(a.producto).localeCompare(String(b.producto)));
 
-    const dates = dispatches.map(d=>d.fecha).concat(meters.map(m=>m.fecha)).filter(Boolean).sort();
+    if(!mainSheets.length && !bobaSheets.length && !entradaSheets.length) throw new Error('No se encontró una hoja de aceites reconocible (se esperaban columnas como Fecha, Equipo, Litros).');
+
+    const dates = dispatches.map(d=>d.fecha).concat(meters.map(m=>m.fecha)).concat(entradas.map(e=>e.fecha)).filter(Boolean).sort();
     const litrosSalidas = dispatches.reduce((a,d)=>a+(Number(d.litros)||0),0);
     const litrosCuenta = meters.reduce((a,m)=>a+(Number(m.litros)||0),0);
+    const litrosEntradas = entradas.reduce((a,e)=>a+(Number(e.litros)||0),0);
     return {
-      dispatches, meters,
+      dispatches, meters, entradas,
       meta: {
-        mainSheet: mainSheets[0]||'', bobaSheet: bobaSheets[0]||'', mainSheets, bobaSheets, sheets: sheets.map(s=>s.name),
-        rows: dispatches.length, meterRows: meters.length,
+        mainSheet: mainSheets[0]||'', bobaSheet: bobaSheets[0]||'', entradaSheet: entradaSheets[0]||'', mainSheets, bobaSheets, entradaSheets, sheets: sheets.map(s=>s.name),
+        rows: dispatches.length, meterRows: meters.length, entradaRows: entradas.length,
         desde: dates[0]||'', hasta: dates[dates.length-1]||'',
         litrosSalidas: Math.round(litrosSalidas*1000)/1000,
         litrosCuenta: Math.round(litrosCuenta*1000)/1000,
+        litrosEntradas: Math.round(litrosEntradas*1000)/1000,
         warnings: warnings.slice(0,20)
       }
     };
